@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Διαδραστική προβολή 4D υπερκύβου και ακριβής τρισδιάστατη τομή με React.">
+<meta name="description" content="Διαδραστική προβολή 4D υπερκύβου με 3D προβολή και προαιρετική τομή με React.">
 <title>Υπερκύβος 4D — React</title>
 <style>
 :root { color-scheme: light dark; --background:#f7f8fa; --foreground:#18202d; --muted-foreground:#526174; --viz-series-1:#3164bf; --viz-series-2:#c75483; font-family:system-ui,sans-serif; }
@@ -13,6 +13,7 @@ body { background:var(--background); color:var(--foreground); margin:0; padding:
 button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1); outline-offset:3px; }
 .form-check { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; cursor:pointer; }
 .form-check-input { width:18px; height:18px; accent-color:var(--viz-series-2); }
+.form-select { font:inherit; color:var(--foreground); background:var(--background); border:1px solid var(--muted-foreground); border-radius:8px; padding:7px 10px; }
 </style></head><body>
 <div id="hypercube-react-root"></div>
 <style>
@@ -25,6 +26,8 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
   #hypercube-react-root .hc-view-label { display:flex; align-items:center; justify-content:space-between; color:var(--muted-foreground); }
   #hypercube-react-root .hc-view-label strong { color:var(--foreground); font-weight:500; }
   #hypercube-react-root .hc-stage svg { display:block; width:100%; height:auto; touch-action:none; user-select:none; }
+  #hypercube-react-root .hc-options { margin-top:8px; }
+  #hypercube-react-root .hc-mode { display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap; }
   #hypercube-react-root .hc-controls { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap:24px; row-gap:12px; margin-top:12px; }
   #hypercube-react-root .hc-control-head { margin-bottom:3px; }
   #hypercube-react-root .hc-control-head output { font-variant-numeric:tabular-nums; color:var(--muted-foreground); }
@@ -50,7 +53,7 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
     }
   }
   const initial = { xw: 38, yw: 22, zw: 12, depth: 3.8, yaw: 0.55, pitch: 0.32,
-    zoom: 1, slice: 0, showSlice: true,
+    zoom: 1, slice: 0, show3D: true, mode: 'projection',
     playing: !window.matchMedia('(prefers-reduced-motion: reduce)').matches };
   const degrees = Math.PI / 180;
   function rotate(v, a, b, angle) {
@@ -88,10 +91,68 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
       x: 250 + (p.x - (left + right) / 2) * fit,
       y: 220 + (p.y - (top + bottom) / 2) * fit }));
   }
-  function project4(p, state) {
+  function project4coords(p, state) {
     const k4 = state.depth / (state.depth - p[3]);
-    const q = [p[0] * k4, p[1] * k4, p[2] * k4];
-    return perspective(q, state);
+    return [p[0] * k4, p[1] * k4, p[2] * k4];
+  }
+  function project4(p, state) {
+    return perspective(project4coords(p, state), state);
+  }
+  function hull3D(rotated, state) {
+    const points3 = rotated.map(p => project4coords(p, state));
+    const faces = [], known = new Set(), eps = 1e-7;
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const sub = (a, b) => a.map((x, i) => x - b[i]);
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    for (let i = 0; i < 16; i++) for (let j = i + 1; j < 16; j++)
+      for (let k = j + 1; k < 16; k++) {
+        let normal = cross(sub(points3[j], points3[i]), sub(points3[k], points3[i]));
+        const size = Math.hypot(...normal);
+        if (size < eps) continue;
+        normal = normal.map(x => x / size);
+        const distances = points3.map(p => dot(normal, sub(p, points3[i])));
+        const lo = Math.min(...distances), hi = Math.max(...distances);
+        if (lo < -eps && hi > eps) continue;
+        if (lo >= -eps) normal = normal.map(x => -x);
+        const plane = dot(normal, points3[i]);
+        const ids = points3.map((p, index) => ({ p, index }))
+          .filter(({ p }) => Math.abs(dot(normal, p) - plane) < eps)
+          .map(({ index }) => index);
+        if (ids.length < 3) continue;
+        const key = ids.join('-');
+        if (known.has(key)) continue;
+        known.add(key);
+        const center = [0, 1, 2].map(axis =>
+          ids.reduce((sum, id) => sum + points3[id][axis], 0) / ids.length);
+        const ref = Math.abs(normal[2]) < .9 ? [0, 0, 1] : [0, 1, 0];
+        const u = cross(ref, normal), v = cross(normal, u);
+        const angle = id => {
+          const delta = sub(points3[id], center);
+          return Math.atan2(dot(delta, v), dot(delta, u));
+        };
+        ids.sort((a, b) => angle(a) - angle(b));
+        const [nx, ny, nz] = camera(normal, state);
+        const front = nz;
+        const light = Math.max(0, nx * .3 + ny * .6 + nz * .7);
+        const z = ids.reduce((sum, id) => sum + camera(points3[id], state)[2], 0) / ids.length;
+        faces.push({ ids, front, light, z, key });
+      }
+    const screen = fitPoints(points3.map(q => perspective(q, state)));
+    const perimeter = new Map();
+    faces.forEach(face => face.ids.forEach((a, i) => {
+      const b = face.ids[(i + 1) % face.ids.length];
+      const key = Math.min(a, b) + '-' + Math.max(a, b);
+      const edge = perimeter.get(key) || { a, b, front: -1 };
+      edge.front = Math.max(edge.front, face.front);
+      perimeter.set(key, edge);
+    }));
+    return { screen,
+      vertices: [...new Set(faces.flatMap(face => face.ids))],
+      visibleVertices: [...new Set(faces.filter(face => face.front > 1e-6).flatMap(face => face.ids))],
+      faces: faces.sort((a, b) => a.z - b.z),
+      edges: [...perimeter.values()].sort((a, b) =>
+        (screen[a.a].depth + screen[a.b].depth) - (screen[b.a].depth + screen[b.b].depth)) };
   }
   function crossSection(rotated, state, phase) {
     const points3 = [];
@@ -145,7 +206,8 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
         sectionEdges.set(key, item);
       });
     }
-    return { screen, faces: sectionFaces.sort((a, b) => a.z - b.z),
+    return { screen, vertices: screen.map((_, i) => i), visibleVertices: screen.map((_, i) => i),
+      faces: sectionFaces.sort((a, b) => a.z - b.z),
       edges: [...sectionEdges.values()].sort((a, b) =>
         (screen[a.a].depth + screen[a.b].depth) - (screen[b.a].depth + screen[b.b].depth)) };
   }
@@ -166,7 +228,8 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
     }, [s.playing]);
     const rotated = vertices.map(v => rotate4(v, s, phase));
     const points = fitPoints(rotated.map(v => project4(v, s)));
-    const section = s.showSlice ? crossSection(rotated, s, phase) : { screen: [], faces: [], edges: [] };
+    const solid = s.show3D ? (s.mode === 'projection' ? hull3D(rotated, s) :
+      crossSection(rotated, s, phase)) : { screen: [], vertices: [], visibleVertices: [], faces: [], edges: [] };
     function footprint(w) {
       const group = points.slice(w * 8, w * 8 + 8);
       return (Math.max(...group.map(p => p.x)) - Math.min(...group.map(p => p.x))) *
@@ -178,7 +241,7 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
       group: edge.axis === 3 ? -1 : (edge.a >> 3)
     })).sort((a, b) => a.z - b.z);
     const exactCube = !s.playing && phase === 0 && s.xw === 0 && s.yw === 0 &&
-      s.zw === 0 && s.slice === 0 && s.showSlice;
+      s.zw === 0 && s.show3D && (s.mode === 'projection' || s.slice === 0);
     const set = (key, value) => setS(old => ({ ...old, [key]: value }));
     function start(e) { dragging.current = { x: e.clientX, y: e.clientY, yaw: s.yaw, pitch: s.pitch }; e.currentTarget.setPointerCapture(e.pointerId); }
     function move(e) {
@@ -201,10 +264,18 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
           onChange: e => set(key, e.target.checked) }),
         h('span', { className: 'form-check-label' }, label));
     }
+    function modeControl() {
+      return h('label', { className: 'hc-mode' }, '3D απεικόνιση ',
+        h('select', { className: 'form-select', value: s.mode,
+          onChange: e => set('mode', e.target.value) },
+          h('option', { value: 'projection' }, 'Προβολή · περίβλημα'),
+          h('option', { value: 'slice' }, 'Τομή · επίπεδο W')));
+    }
     function scene(shaded) {
       const prefix = shaded ? 'hc-section' : 'hc-wire';
       return h('svg', { viewBox: '0 0 500 440', role: 'img',
-        'aria-label': shaded ? 'Η πραγματική τρισδιάστατη τομή του περιστρεφόμενου υπερκύβου.' :
+        'aria-label': shaded ? (s.mode === 'projection' ? 'Το κυρτό εξωτερικό περίβλημα της 3D προβολής.' :
+          'Η τρισδιάστατη τομή του περιστρεφόμενου υπερκύβου.') :
           'Ο σκελετός του υπερκύβου με 16 κορυφές και 32 ακμές.',
         onPointerDown: start, onPointerMove: move,
         onPointerUp: () => { dragging.current = null; },
@@ -218,24 +289,25 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
             h('stop', { offset: '0%', stopColor: 'var(--viz-series-2)', stopOpacity: '.25' }),
             h('stop', { offset: '100%', stopColor: 'var(--viz-series-2)', stopOpacity: '0' }))),
         h('ellipse', { cx: 250, cy: 220, rx: 245, ry: 208, fill: 'url(#' + prefix + '-glow)' }),
-        shaded && s.showSlice && h('ellipse', { cx: 255, cy: 390, rx: 155, ry: 29, fill: 'url(#' + prefix + '-shadow)' }),
-        shaded && !s.showSlice && h('text', { x: 250, y: 220, textAnchor: 'middle', fill: 'var(--muted-foreground)' },
-          'Ενεργοποίησε την 3D τομή'),
-        shaded && section.faces.map(face =>
+        shaded && s.show3D && h('ellipse', { cx: 255, cy: 390, rx: 155, ry: 29, fill: 'url(#' + prefix + '-shadow)' }),
+        shaded && !s.show3D && h('text', { x: 250, y: 220, textAnchor: 'middle', fill: 'var(--muted-foreground)' },
+          'Ενεργοποίησε το 3D σχήμα'),
+        shaded && solid.faces.filter(face => s.mode === 'slice' || face.front > 1e-6).map(face =>
           h('polygon', { key: face.key,
-            points: face.ids.map(index => section.screen[index].x + ',' + section.screen[index].y).join(' '),
+            points: face.ids.map(index => solid.screen[index].x + ',' + solid.screen[index].y).join(' '),
             fill: 'var(--viz-series-2)',
-            fillOpacity: face.front > 0 ? Math.min(.7, .24 + face.light * .28 + face.front * .14) : .045,
-            stroke: 'var(--viz-series-2)', strokeOpacity: face.front > 0 ? .44 : .12,
+            fillOpacity: face.front > 0 ? (s.mode === 'projection' ? Math.min(.94, .66 + face.light * .22 + face.front * .08) :
+              Math.min(.7, .24 + face.light * .28 + face.front * .14)) : .045,
+            stroke: 'var(--viz-series-2)', strokeOpacity: face.front > 0 ? .5 : .12,
             strokeWidth: 1,
             style: face.front > 0 ? { filter: 'drop-shadow(0px 5px 7px var(--viz-series-2))' } : undefined })),
-        shaded && section.edges.map((edge, i) => {
-          const a = section.screen[edge.a], b = section.screen[edge.b];
+        shaded && solid.edges.filter(edge => s.mode === 'slice' || edge.front > 1e-6).map((edge, i) => {
+          const a = solid.screen[edge.a], b = solid.screen[edge.b];
           return h('line', { key: i, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
             stroke: 'var(--viz-series-2)', strokeOpacity: edge.front > 0 ? .95 : .36,
             strokeWidth: edge.front > 0 ? 2.3 : 1.5, strokeLinecap: 'round' });
         }),
-        shaded && section.screen.map((p, i) => h('circle', { key: i, cx: p.x, cy: p.y,
+        shaded && solid.visibleVertices.map(i => h('circle', { key: i, cx: solid.screen[i].x, cy: solid.screen[i].y,
           r: 3.2, fill: 'var(--viz-series-2)', stroke: 'var(--background)', strokeWidth: 1.2 })),
         !shaded && orderedEdges.map(edge => {
           const a = points[edge.a], b = points[edge.b];
@@ -256,10 +328,10 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
         h('h2', null, 'Υπερκύβος 4D'),
         h('div', { className: 'hc-actions' },
           switchControl('playing', 'Αυτόματη περιστροφή'),
-          switchControl('showSlice', '3D τομή'),
+          switchControl('show3D', '3D σχήμα'),
           h('button', { type: 'button', className: 'btn btn-primary',
             onClick: () => {
-              setS(old => ({ ...old, playing: false, showSlice: true,
+              setS(old => ({ ...old, playing: false, show3D: true, mode: 'projection',
                 xw: 0, yw: 0, zw: 0, slice: 0, zoom: 1 }));
               setPhase(0);
             } }, 'Δείξε 3D κύβο'),
@@ -270,19 +342,23 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
           h('div', { className: 'hc-view-label' }, h('strong', null, 'Υπερκύβος 4D'), h('span', null, '16 κορυφές · 32 ακμές')),
           scene(false)),
         h('div', { className: 'hc-view' },
-          h('div', { className: 'hc-view-label' }, h('strong', null, 'Τομή στον 3D χώρο'),
-            h('span', null, s.showSlice ? section.screen.length + ' κορυφές · ' + section.faces.length + ' έδρες' : 'ανενεργή')),
+          h('div', { className: 'hc-view-label' }, h('strong', null, s.mode === 'projection' ? 'Προβολή στον 3D χώρο' : 'Τομή στον 3D χώρο'),
+            h('span', null, s.show3D ? solid.vertices.length + ' κορυφές · ' + solid.faces.length + ' έδρες' : 'ανενεργή')),
           scene(true))),
+      h('div', { className: 'hc-options' }, modeControl()),
       h('div', { className: 'hc-controls' },
         slider('xw', 'Περιστροφή X–W', -180, 180, 1, '°'),
         slider('yw', 'Περιστροφή Y–W', -180, 180, 1, '°'),
         slider('zw', 'Περιστροφή Z–W', -180, 180, 1, '°'),
-        slider('slice', 'Επίπεδο τομής W', -.85, .85, .01, ''),
+        s.mode === 'slice' && slider('slice', 'Επίπεδο τομής W', -.85, .85, .01, ''),
         slider('depth', '4D προοπτική', 2.6, 8, .1, ''),
         slider('zoom', 'Μεγέθυνση', .5, 1.35, .01, '×')),
       h('p', { className: 'hc-hint', 'aria-live': 'polite' },
-        exactCube ? 'Κυβική τομή: X–W = 0°, Y–W = 0°, Z–W = 0°, επίπεδο W = 0. Η αυτόματη περιστροφή σταμάτησε.' :
-          'Σύρε οποιαδήποτε όψη για αλλαγή οπτικής. Η δεξιά μορφή είναι η τομή του 4D υπερκύβου στο επίπεδο W που επέλεξες.'));
+        exactCube ? (s.mode === 'projection' ? 'Κυβική 3D προβολή' : 'Κυβική 3D τομή') +
+          ': X–W = 0°, Y–W = 0°, Z–W = 0°' + (s.mode === 'slice' ? ', W = 0' : '') +
+          '. Η αυτόματη περιστροφή σταμάτησε.' :
+          s.mode === 'projection' ? 'Δεξιά: το κυρτό εξωτερικό περίβλημα των 16 κορυφών αφού προβληθούν από 4D σε 3D.' :
+            'Δεξιά: τομή του 4D υπερκύβου με το επιλεγμένο επίπεδο W.'));
   }
   ReactDOM.createRoot(root).render(h(App));
 })();
