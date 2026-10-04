@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Διαδραστική προβολή 4D υπερκύβου και ακριβής τρισδιάστατη τομή με React.">
+<title>Υπερκύβος 4D — React</title>
+<style>
+:root { color-scheme: light dark; --background:#f7f8fa; --foreground:#18202d; --muted-foreground:#526174; --viz-series-1:#3164bf; --viz-series-2:#c75483; font-family:system-ui,sans-serif; }
+@media (prefers-color-scheme:dark) { :root { --background:#121720; --foreground:#ebeff8; --muted-foreground:#acb8cb; --viz-series-1:#7caaff; --viz-series-2:#fa8db7; } }
+* { box-sizing:border-box; }
+body { background:var(--background); color:var(--foreground); margin:0; padding:clamp(16px,3vw,36px); }
+.btn { font:inherit; color:var(--foreground); background:transparent; border:1px solid var(--muted-foreground); border-radius:8px; padding:8px 14px; cursor:pointer; }
+.btn-primary { color:var(--background); background:var(--foreground); border-color:var(--foreground); }
+.form-range { width:100%; accent-color:var(--viz-series-1); }
+button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1); outline-offset:3px; }
+.form-check { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; cursor:pointer; }
+.form-check-input { width:18px; height:18px; accent-color:var(--viz-series-2); }
+</style></head><body>
+<div id="hypercube-react-root"></div>
+<style>
+  #hypercube-react-root { color: var(--foreground); max-width: 1024px; margin: 0 auto; }
+  #hypercube-react-root .hc-top, #hypercube-react-root .hc-actions, #hypercube-react-root .hc-control-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  #hypercube-react-root .hc-top { margin-bottom:8px; }
+  #hypercube-react-root .hc-top h2 { margin:0; }
+  #hypercube-react-root .hc-stage { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; width:100%; }
+  #hypercube-react-root .hc-view { min-width:0; }
+  #hypercube-react-root .hc-view-label { display:flex; align-items:center; justify-content:space-between; color:var(--muted-foreground); }
+  #hypercube-react-root .hc-view-label strong { color:var(--foreground); font-weight:500; }
+  #hypercube-react-root .hc-stage svg { display:block; width:100%; height:auto; touch-action:none; user-select:none; }
+  #hypercube-react-root .hc-controls { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap:24px; row-gap:12px; margin-top:12px; }
+  #hypercube-react-root .hc-control-head { margin-bottom:3px; }
+  #hypercube-react-root .hc-control-head output { font-variant-numeric:tabular-nums; color:var(--muted-foreground); }
+  #hypercube-react-root .hc-hint { color:var(--muted-foreground); margin:8px 0 0; }
+  #hypercube-react-root .hc-legend { color:var(--muted-foreground); }
+  #hypercube-react-root .hc-legend b { color:var(--foreground); font-weight:500; }
+  @media (max-width: 620px) { #hypercube-react-root .hc-stage, #hypercube-react-root .hc-controls { grid-template-columns:1fr; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+(() => {
+  const root = document.getElementById('hypercube-react-root');
+  if (!root || !window.React || !window.ReactDOM) return;
+  const h = React.createElement;
+  const vertices = Array.from({ length: 16 }, (_, i) =>
+    [0, 1, 2, 3].map(bit => (i & (1 << bit)) ? 1 : -1));
+  const edges = [];
+  for (let i = 0; i < 16; i++) {
+    for (let axis = 0; axis < 4; axis++) {
+      const j = i ^ (1 << axis);
+      if (i < j) edges.push({ a: i, b: j, axis });
+    }
+  }
+  const initial = { xw: 38, yw: 22, zw: 12, depth: 3.8, yaw: 0.55, pitch: 0.32,
+    zoom: 1, slice: 0, showSlice: true,
+    playing: !window.matchMedia('(prefers-reduced-motion: reduce)').matches };
+  const degrees = Math.PI / 180;
+  function rotate(v, a, b, angle) {
+    const c = Math.cos(angle), s = Math.sin(angle), out = v.slice();
+    out[a] = c * v[a] - s * v[b];
+    out[b] = s * v[a] + c * v[b];
+    return out;
+  }
+  function rotate4(v, state, phase) {
+    let p = rotate(v, 0, 3, (state.xw + phase * 27) * degrees);
+    p = rotate(p, 1, 3, (state.yw + phase * 17) * degrees);
+    p = rotate(p, 2, 3, state.zw * degrees);
+    return rotate(p, 0, 1, phase * 0.12);
+  }
+  function camera(q, state) {
+    const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
+    const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
+    const x = cy * q[0] + sy * q[2];
+    const z = -sy * q[0] + cy * q[2];
+    return [x, cp * q[1] - sp * z, sp * q[1] + cp * z];
+  }
+  function perspective(q, state) {
+    const [x, y, depth] = camera(q, state);
+    const k3 = 5 / (5 - depth);
+    return { x: 250 + x * 69 * k3 * state.zoom,
+      y: 220 - y * 69 * k3 * state.zoom, depth };
+  }
+  function fitPoints(raw) {
+    if (!raw.length) return [];
+    const xs = raw.map(p => p.x), ys = raw.map(p => p.y);
+    const left = Math.min(...xs), right = Math.max(...xs);
+    const top = Math.min(...ys), bottom = Math.max(...ys);
+    const fit = Math.min(1, 440 / Math.max(1, right - left), 365 / Math.max(1, bottom - top));
+    return raw.map(p => ({ ...p,
+      x: 250 + (p.x - (left + right) / 2) * fit,
+      y: 220 + (p.y - (top + bottom) / 2) * fit }));
+  }
+  function project4(p, state) {
+    const k4 = state.depth / (state.depth - p[3]);
+    const q = [p[0] * k4, p[1] * k4, p[2] * k4];
+    return perspective(q, state);
+  }
+  function crossSection(rotated, state, phase) {
+    const points3 = [];
+    const edgeToPoint = new Map();
+    for (const edge of edges) {
+      const a = rotated[edge.a], b = rotated[edge.b];
+      const denominator = b[3] - a[3];
+      if (Math.abs(denominator) < 1e-9) continue;
+      const t = (state.slice - a[3]) / denominator;
+      if (t < -1e-8 || t > 1 + 1e-8) continue;
+      const q = [0, 1, 2].map(axis => a[axis] + t * (b[axis] - a[axis]));
+      let index = points3.findIndex(p => p.reduce((sum, x, axis) => sum + (x - q[axis]) ** 2, 0) < 1e-12);
+      if (index < 0) { index = points3.length; points3.push(q); }
+      edgeToPoint.set(edge, index);
+    }
+    const screen = fitPoints(points3.map(q => perspective(q, state)));
+    const sectionFaces = [];
+    const sectionEdges = new Map();
+    for (let fixed = 0; fixed < 4; fixed++) for (let side = 0; side < 2; side++) {
+      const ids = [...new Set(edges.filter(edge => edgeToPoint.has(edge) &&
+        ((edge.a >> fixed) & 1) === side && ((edge.b >> fixed) & 1) === side)
+        .map(edge => edgeToPoint.get(edge)))];
+      if (ids.length < 3) continue;
+      const axis4 = [0, 0, 0, 0]; axis4[fixed] = side ? 1 : -1;
+      const normal = rotate4(axis4, state, phase);
+      const length = Math.hypot(normal[0], normal[1], normal[2]);
+      if (length < 1e-9) continue;
+      const n = [normal[0] / length, normal[1] / length, normal[2] / length];
+      const ref = Math.abs(n[2]) < .9 ? [0, 0, 1] : [0, 1, 0];
+      const cross = (a, b) => [a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      const u = cross(ref, n), v = cross(n, u);
+      const center = [0, 1, 2].map(axis =>
+        ids.reduce((sum, i) => sum + points3[i][axis], 0) / ids.length);
+      const angle = i => {
+        const delta = points3[i].map((x, axis) => x - center[axis]);
+        const dot = vector => delta.reduce((sum, x, axis) => sum + x * vector[axis], 0);
+        return Math.atan2(dot(v), dot(u));
+      };
+      ids.sort((a, b) => angle(a) - angle(b));
+      const [nx, ny, nz] = camera(normal, state);
+      const front = nz / Math.max(1e-9, Math.hypot(nx, ny, nz));
+      const light = Math.max(0, nx * .3 + ny * .6 + nz * .7);
+      const z = ids.reduce((sum, i) => sum + screen[i].depth, 0) / ids.length;
+      sectionFaces.push({ ids, front, light, z, key: fixed + '-' + side });
+      ids.forEach((a, i) => {
+        const b = ids[(i + 1) % ids.length];
+        const key = Math.min(a, b) + '-' + Math.max(a, b);
+        const item = sectionEdges.get(key) || { a, b, front: -1 };
+        item.front = Math.max(item.front, front);
+        sectionEdges.set(key, item);
+      });
+    }
+    return { screen, faces: sectionFaces.sort((a, b) => a.z - b.z),
+      edges: [...sectionEdges.values()].sort((a, b) =>
+        (screen[a.a].depth + screen[a.b].depth) - (screen[b.a].depth + screen[b.b].depth)) };
+  }
+  function App() {
+    const [s, setS] = React.useState(initial);
+    const [phase, setPhase] = React.useState(0);
+    const dragging = React.useRef(null);
+    React.useEffect(() => {
+      if (!s.playing) return;
+      let frame, previous;
+      function tick(now) {
+        if (previous !== undefined) setPhase(v => v + Math.min(now - previous, 50) / 1000);
+        previous = now;
+        frame = requestAnimationFrame(tick);
+      }
+      frame = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(frame);
+    }, [s.playing]);
+    const rotated = vertices.map(v => rotate4(v, s, phase));
+    const points = fitPoints(rotated.map(v => project4(v, s)));
+    const section = s.showSlice ? crossSection(rotated, s, phase) : { screen: [], faces: [], edges: [] };
+    function footprint(w) {
+      const group = points.slice(w * 8, w * 8 + 8);
+      return (Math.max(...group.map(p => p.x)) - Math.min(...group.map(p => p.x))) *
+        (Math.max(...group.map(p => p.y)) - Math.min(...group.map(p => p.y)));
+    }
+    const innerW = footprint(0) <= footprint(1) ? 0 : 1;
+    const orderedEdges = edges.map((edge, i) => ({
+      ...edge, i, z: (points[edge.a].depth + points[edge.b].depth) / 2,
+      group: edge.axis === 3 ? -1 : (edge.a >> 3)
+    })).sort((a, b) => a.z - b.z);
+    const exactCube = !s.playing && phase === 0 && s.xw === 0 && s.yw === 0 &&
+      s.zw === 0 && s.slice === 0 && s.showSlice;
+    const set = (key, value) => setS(old => ({ ...old, [key]: value }));
+    function start(e) { dragging.current = { x: e.clientX, y: e.clientY, yaw: s.yaw, pitch: s.pitch }; e.currentTarget.setPointerCapture(e.pointerId); }
+    function move(e) {
+      if (!dragging.current) return;
+      const d = dragging.current;
+      setS(old => ({ ...old,
+        yaw: d.yaw + (e.clientX - d.x) * 0.009,
+        pitch: Math.max(-1.45, Math.min(1.45, d.pitch + (e.clientY - d.y) * 0.009))
+      }));
+    }
+    function slider(key, label, min, max, step, suffix) {
+      return h('label', { key, className: 'hc-slider' },
+        h('span', { className: 'hc-control-head' }, h('span', null, label), h('output', null, s[key] + suffix)),
+        h('input', { className: 'form-range', type: 'range', min, max, step, value: s[key],
+          onChange: e => set(key, Number(e.target.value)), 'aria-label': label }));
+    }
+    function switchControl(key, label) {
+      return h('label', { className: 'form-check form-switch', key },
+        h('input', { className: 'form-check-input', type: 'checkbox', checked: s[key],
+          onChange: e => set(key, e.target.checked) }),
+        h('span', { className: 'form-check-label' }, label));
+    }
+    function scene(shaded) {
+      const prefix = shaded ? 'hc-section' : 'hc-wire';
+      return h('svg', { viewBox: '0 0 500 440', role: 'img',
+        'aria-label': shaded ? 'Η πραγματική τρισδιάστατη τομή του περιστρεφόμενου υπερκύβου.' :
+          'Ο σκελετός του υπερκύβου με 16 κορυφές και 32 ακμές.',
+        onPointerDown: start, onPointerMove: move,
+        onPointerUp: () => { dragging.current = null; },
+        onPointerCancel: () => { dragging.current = null; },
+        style: { cursor: dragging.current ? 'grabbing' : 'grab' } },
+        h('defs', null,
+          h('radialGradient', { id: prefix + '-glow' },
+            h('stop', { offset: '0%', stopColor: shaded ? 'var(--viz-series-2)' : 'var(--viz-series-1)', stopOpacity: shaded ? '.12' : '.1' }),
+            h('stop', { offset: '100%', stopColor: shaded ? 'var(--viz-series-2)' : 'var(--viz-series-1)', stopOpacity: '0' })),
+          h('radialGradient', { id: prefix + '-shadow' },
+            h('stop', { offset: '0%', stopColor: 'var(--viz-series-2)', stopOpacity: '.25' }),
+            h('stop', { offset: '100%', stopColor: 'var(--viz-series-2)', stopOpacity: '0' }))),
+        h('ellipse', { cx: 250, cy: 220, rx: 245, ry: 208, fill: 'url(#' + prefix + '-glow)' }),
+        shaded && s.showSlice && h('ellipse', { cx: 255, cy: 390, rx: 155, ry: 29, fill: 'url(#' + prefix + '-shadow)' }),
+        shaded && !s.showSlice && h('text', { x: 250, y: 220, textAnchor: 'middle', fill: 'var(--muted-foreground)' },
+          'Ενεργοποίησε την 3D τομή'),
+        shaded && section.faces.map(face =>
+          h('polygon', { key: face.key,
+            points: face.ids.map(index => section.screen[index].x + ',' + section.screen[index].y).join(' '),
+            fill: 'var(--viz-series-2)',
+            fillOpacity: face.front > 0 ? Math.min(.7, .24 + face.light * .28 + face.front * .14) : .045,
+            stroke: 'var(--viz-series-2)', strokeOpacity: face.front > 0 ? .44 : .12,
+            strokeWidth: 1,
+            style: face.front > 0 ? { filter: 'drop-shadow(0px 5px 7px var(--viz-series-2))' } : undefined })),
+        shaded && section.edges.map((edge, i) => {
+          const a = section.screen[edge.a], b = section.screen[edge.b];
+          return h('line', { key: i, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+            stroke: 'var(--viz-series-2)', strokeOpacity: edge.front > 0 ? .95 : .36,
+            strokeWidth: edge.front > 0 ? 2.3 : 1.5, strokeLinecap: 'round' });
+        }),
+        shaded && section.screen.map((p, i) => h('circle', { key: i, cx: p.x, cy: p.y,
+          r: 3.2, fill: 'var(--viz-series-2)', stroke: 'var(--background)', strokeWidth: 1.2 })),
+        !shaded && orderedEdges.map(edge => {
+          const a = points[edge.a], b = points[edge.b];
+          const inner = edge.group === innerW;
+          const color = inner ? 'var(--viz-series-2)' : 'var(--viz-series-1)';
+          const opacity = Math.min(.98, Math.max(.34, .65 + edge.z * .11));
+          return h('line', { key: edge.i, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+            stroke: color, strokeOpacity: edge.group === -1 ? opacity * .66 : opacity,
+            strokeWidth: inner ? 2.4 : 1.8, strokeLinecap: 'round' });
+        }),
+        !shaded && points.map((p, i) => h('circle', { key: i, cx: p.x, cy: p.y,
+          r: Math.max(3, 3.8 + p.depth * .38),
+          fill: (i >> 3) === innerW ? 'var(--viz-series-2)' : 'var(--viz-series-1)',
+          stroke: 'var(--background)', strokeWidth: 1.35 }))); 
+    }
+    return h(React.Fragment, null,
+      h('div', { className: 'hc-top' },
+        h('h2', null, 'Υπερκύβος 4D'),
+        h('div', { className: 'hc-actions' },
+          switchControl('playing', 'Αυτόματη περιστροφή'),
+          switchControl('showSlice', '3D τομή'),
+          h('button', { type: 'button', className: 'btn btn-primary',
+            onClick: () => {
+              setS(old => ({ ...old, playing: false, showSlice: true,
+                xw: 0, yw: 0, zw: 0, slice: 0, zoom: 1 }));
+              setPhase(0);
+            } }, 'Δείξε 3D κύβο'),
+          h('button', { type: 'button', className: 'btn',
+            onClick: () => { setS(initial); setPhase(0); } }, 'Επαναφορά'))),
+      h('div', { className: 'hc-stage' },
+        h('div', { className: 'hc-view' },
+          h('div', { className: 'hc-view-label' }, h('strong', null, 'Υπερκύβος 4D'), h('span', null, '16 κορυφές · 32 ακμές')),
+          scene(false)),
+        h('div', { className: 'hc-view' },
+          h('div', { className: 'hc-view-label' }, h('strong', null, 'Τομή στον 3D χώρο'),
+            h('span', null, s.showSlice ? section.screen.length + ' κορυφές · ' + section.faces.length + ' έδρες' : 'ανενεργή')),
+          scene(true))),
+      h('div', { className: 'hc-controls' },
+        slider('xw', 'Περιστροφή X–W', -180, 180, 1, '°'),
+        slider('yw', 'Περιστροφή Y–W', -180, 180, 1, '°'),
+        slider('zw', 'Περιστροφή Z–W', -180, 180, 1, '°'),
+        slider('slice', 'Επίπεδο τομής W', -.85, .85, .01, ''),
+        slider('depth', '4D προοπτική', 2.6, 8, .1, ''),
+        slider('zoom', 'Μεγέθυνση', .5, 1.35, .01, '×')),
+      h('p', { className: 'hc-hint', 'aria-live': 'polite' },
+        exactCube ? 'Κυβική τομή: X–W = 0°, Y–W = 0°, Z–W = 0°, επίπεδο W = 0. Η αυτόματη περιστροφή σταμάτησε.' :
+          'Σύρε οποιαδήποτε όψη για αλλαγή οπτικής. Η δεξιά μορφή είναι η τομή του 4D υπερκύβου στο επίπεδο W που επέλεξες.'));
+  }
+  ReactDOM.createRoot(root).render(h(App));
+})();
+</script>
+</body></html>
