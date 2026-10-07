@@ -1,16 +1,22 @@
 <!doctype html>
 <html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Διαδραστική προβολή 4D υπερκύβου με 3D προβολή και προαιρετική τομή με React.">
+<meta name="description" content="Διαδραστική προβολή 4D υπερκύβου με 3D προβολή, τομή, colormaps και μαθηματική τεκμηρίωση σε PDF.">
 <title>Υπερκύβος 4D — React</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d0b1f">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
 :root { color-scheme: light dark; --background:#f7f8fa; --foreground:#18202d; --muted-foreground:#526174; --viz-series-1:#3164bf; --viz-series-2:#c75483; font-family:system-ui,sans-serif; }
 @media (prefers-color-scheme:dark) { :root { --background:#121720; --foreground:#ebeff8; --muted-foreground:#acb8cb; --viz-series-1:#7caaff; --viz-series-2:#fa8db7; } }
 * { box-sizing:border-box; }
 body { background:var(--background); color:var(--foreground); margin:0; padding:clamp(16px,3vw,36px); }
-.btn { font:inherit; color:var(--foreground); background:transparent; border:1px solid var(--muted-foreground); border-radius:8px; padding:8px 14px; cursor:pointer; }
+.btn { font:inherit; color:var(--foreground); background:transparent; border:1px solid var(--muted-foreground); border-radius:8px; padding:8px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:7px; text-decoration:none; line-height:1.2; }
 .btn-primary { color:var(--background); background:var(--foreground); border-color:var(--foreground); }
+.btn[aria-expanded="true"] { background:color-mix(in srgb, var(--foreground) 9%, transparent); border-color:var(--foreground); }
+.btn-sm { padding:5px 10px; font-size:.92em; }
 .form-range { width:100%; accent-color:var(--viz-series-1); }
-button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1); outline-offset:3px; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline:2px solid var(--viz-series-1); outline-offset:3px; }
 .form-check { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; cursor:pointer; }
 .form-check-input { width:18px; height:18px; accent-color:var(--viz-series-2); }
 .form-select { font:inherit; color:var(--foreground); background:var(--background); border:1px solid var(--muted-foreground); border-radius:8px; padding:7px 10px; }
@@ -21,6 +27,7 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
   #hypercube-react-root .hc-top, #hypercube-react-root .hc-actions, #hypercube-react-root .hc-control-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   #hypercube-react-root .hc-top { margin-bottom:8px; }
   #hypercube-react-root .hc-top h2 { margin:0; }
+  #hypercube-react-root .hc-actions { justify-content:flex-end; gap:10px; }
   #hypercube-react-root .hc-stage { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; width:100%; }
   #hypercube-react-root .hc-view { min-width:0; }
   #hypercube-react-root .hc-view-label { display:flex; align-items:center; justify-content:space-between; color:var(--muted-foreground); }
@@ -28,18 +35,36 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
   #hypercube-react-root .hc-stage svg { display:block; width:100%; height:auto; touch-action:none; user-select:none; }
   #hypercube-react-root .hc-options { margin-top:8px; }
   #hypercube-react-root .hc-mode { display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  #hypercube-react-root .hc-palette { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:12px 0 4px; }
-  #hypercube-react-root .hc-palette-group { display:grid; gap:7px; min-width:0; }
-  #hypercube-react-root .hc-palette-group strong { font-weight:500; }
-  #hypercube-react-root .hc-palette-group label { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  #hypercube-react-root .hc-palette-group select { max-width:170px; }
   #hypercube-react-root .hc-controls { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap:24px; row-gap:12px; margin-top:12px; }
   #hypercube-react-root .hc-control-head { margin-bottom:3px; }
   #hypercube-react-root .hc-control-head output { font-variant-numeric:tabular-nums; color:var(--muted-foreground); }
   #hypercube-react-root .hc-hint { color:var(--muted-foreground); margin:8px 0 0; }
   #hypercube-react-root .hc-legend { color:var(--muted-foreground); }
   #hypercube-react-root .hc-legend b { color:var(--foreground); font-weight:500; }
-  @media (max-width: 620px) { #hypercube-react-root .hc-stage, #hypercube-react-root .hc-controls, #hypercube-react-root .hc-palette { grid-template-columns:1fr; } }
+  /* Χρώματα: πάνελ, colormaps, υπόμνημα */
+  #hypercube-react-root .hc-panel { margin:4px 0 14px; padding:14px 16px 16px; border:1px solid color-mix(in srgb, var(--muted-foreground) 45%, transparent); border-radius:12px; background:color-mix(in srgb, var(--foreground) 3%, var(--background)); }
+  #hypercube-react-root .hc-panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  #hypercube-react-root .hc-panel-head strong { font-weight:600; }
+  #hypercube-react-root .hc-panel-label { display:block; color:var(--muted-foreground); font-size:.92em; margin-bottom:6px; }
+  #hypercube-react-root .hc-swatches { display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:8px; }
+  #hypercube-react-root .hc-swatch { font:inherit; font-size:.9em; color:var(--foreground); background:transparent; text-align:left; border:1px solid color-mix(in srgb, var(--muted-foreground) 50%, transparent); border-radius:8px; padding:6px 7px; display:flex; flex-direction:column; gap:5px; cursor:pointer; }
+  #hypercube-react-root .hc-swatch.is-active { border-color:var(--foreground); box-shadow:inset 0 0 0 1px var(--foreground); }
+  #hypercube-react-root .hc-swatch-bar { display:block; height:14px; border-radius:4px; }
+  #hypercube-react-root .hc-panel-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:10px; }
+  #hypercube-react-root .hc-panel-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px; margin-top:16px; }
+  #hypercube-react-root .hc-field { display:flex; flex-direction:column; gap:8px; min-width:0; }
+  #hypercube-react-root .hc-field .form-select { width:100%; }
+  #hypercube-react-root .hc-colors { display:flex; gap:14px; flex-wrap:wrap; }
+  #hypercube-react-root .hc-color { display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+  #hypercube-react-root .hc-color input { width:36px; height:28px; padding:0 2px; border:1px solid var(--muted-foreground); border-radius:6px; background:transparent; cursor:pointer; }
+  #hypercube-react-root .hc-note { color:var(--muted-foreground); font-size:.88em; margin:0; }
+  #hypercube-react-root .hc-panel-foot { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  #hypercube-react-root .hc-key { display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:var(--muted-foreground); font-size:.9em; margin-top:4px; min-height:20px; }
+  #hypercube-react-root .hc-key-bar { flex:1 1 auto; min-width:48px; max-width:220px; height:10px; border-radius:5px; }
+  #hypercube-react-root .hc-chip { display:inline-flex; align-items:center; gap:5px; }
+  #hypercube-react-root .hc-chip i { display:inline-block; width:12px; height:12px; border-radius:3px; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--foreground) 28%, transparent); }
+  #hypercube-react-root .hc-key-bar { box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--foreground) 18%, transparent); }
+  @media (max-width: 620px) { #hypercube-react-root .hc-stage, #hypercube-react-root .hc-controls, #hypercube-react-root .hc-panel-grid { grid-template-columns:1fr; } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -59,24 +84,58 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
   }
   const initial = { xw: 38, yw: 22, zw: 12, depth: 3.8, yaw: 0.55, pitch: 0.32,
     zoom: 1, slice: 0, show3D: true, mode: 'projection',
-    paletteOpen: false, color4: null, color3: null, map4: 'mono', map3: 'mono',
     playing: !window.matchMedia('(prefers-reduced-motion: reduce)').matches };
-  const colorMaps = {
-    viridis: ['#440154','#3b528b','#21918c','#5ec962','#fde725'],
-    plasma: ['#0d0887','#7e03a8','#cc4778','#f89540','#f0f921'],
-    coolwarm: ['#3b4cc0','#8db0fe','#dddcdc','#f49a7b','#b40426']
-  };
-  function colorAt(map, t, fallback) {
-    if (map === 'mono') return fallback;
-    const stops = colorMaps[map], v = Math.max(0, Math.min(1, t)) * (stops.length - 1);
-    const index = Math.min(stops.length - 2, Math.floor(v)), alpha = v - index;
-    const channel = (hex, n) => parseInt(hex.slice(1 + 2*n, 3 + 2*n), 16);
-    const rgb = [0,1,2].map(n => Math.round(channel(stops[index],n) * (1-alpha) +
-      channel(stops[index+1],n) * alpha));
-    return 'rgb(' + rgb.join(',') + ')';
-  }
-  const unit = (value, min, max) => (value - min) / Math.max(1e-9, max - min);
   const degrees = Math.PI / 180;
+  const EYE = 5; // απόσταση 3D κάμερας από την αρχή των αξόνων
+
+  // ---------- Χρώματα ----------
+  // Δείγματα 11 σημείων από τα colormaps του matplotlib (inferno/magma στο [0.08, 0.96]).
+  const CMAPS = {
+    viridis: { name: 'Viridis', stops: ['#440154','#482475','#414487','#355f8d','#2a788e','#21918c','#22a884','#44bf70','#7ad151','#bddf26','#fde725'] },
+    plasma: { name: 'Plasma', stops: ['#0d0887','#41049d','#6a00a8','#8f0da4','#b12a90','#cc4778','#e16462','#f2844b','#fca636','#fcce25','#f0f921'] },
+    inferno: { name: 'Inferno', stops: ['#10092d','#340a5f','#59106e','#7d1e6d','#a02a63','#c33b4f','#df5337','#f3761b','#fb9d07','#f9c932','#f2f27d'] },
+    magma: { name: 'Magma', stops: ['#0e0b2b','#2d1161','#52137c','#762181','#992d80','#bf3a77','#e04c67','#f66e5c','#fd9869','#fec287','#fdebac'] },
+    cividis: { name: 'Cividis', stops: ['#00224e','#083370','#35456c','#4f576c','#666970','#7d7c78','#948e77','#aea371','#c8b866','#e5cf52','#fee838'] },
+    turbo: { name: 'Turbo', stops: ['#30123b','#4559cb','#3e9bfe','#19d5cd','#46f884','#a4fc3c','#e1dd37','#fea431','#f05b12','#c32503','#7a0403'] },
+    coolwarm: { name: 'Coolwarm', stops: ['#3b4cc0','#5977e3','#7b9ff9','#9ebeff','#c0d4f5','#dddcdc','#f2cbb7','#f7ac8e','#ee8468','#d65244','#b40426'] }
+  };
+  const THEME = { light: { a: '#3164bf', b: '#c75483', bg: '#f7f8fa' },
+    dark: { a: '#7caaff', b: '#fa8db7', bg: '#121720' } };
+  const AXIS_NAMES = ['X', 'Y', 'Z', 'W'];
+  const DEFAULT_COLORS = { cmap: 'viridis', reverse: false, wire: 'cubes', solid: 'single',
+    c4a: null, c4b: null, c3: null };
+  const RECOMMENDED_COLORS = { wire: 'w', solid: 'cmap' };
+  const STORAGE_KEY = 'hypercube-colors-v3';
+  function loadColors() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved && CMAPS[saved.cmap]) return { ...DEFAULT_COLORS, ...saved };
+    } catch (e) {}
+    return DEFAULT_COLORS;
+  }
+  function saveColors(c) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); } catch (e) {} }
+  const hexToRgb = hex => { const n = parseInt(hex.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+  const rgbToHex = rgb => '#' + rgb.map(x => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0')).join('');
+  function sampleStops(stops, t) {
+    const x = Math.max(0, Math.min(1, t)) * (stops.length - 1);
+    const i = Math.min(stops.length - 2, Math.floor(x)), f = x - i;
+    const a = hexToRgb(stops[i]), b = hexToRgb(stops[i + 1]);
+    return rgbToHex(a.map((v, k) => v + (b[k] - v) * f));
+  }
+  function luminance(hex) {
+    const [r, g, b] = hexToRgb(hex).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); });
+    return .2126 * r + .7152 * g + .0722 * b;
+  }
+  function contrast(a, b) {
+    const la = luminance(a), lb = luminance(b);
+    return (Math.max(la, lb) + .05) / (Math.min(la, lb) + .05);
+  }
+  const cmapCss = (key, reverse) => {
+    const stops = reverse ? CMAPS[key].stops.slice().reverse() : CMAPS[key].stops;
+    return 'linear-gradient(90deg,' + stops.join(',') + ')';
+  };
+
+  // ---------- Γεωμετρία ----------
   function rotate(v, a, b, angle) {
     const c = Math.cos(angle), s = Math.sin(angle), out = v.slice();
     out[a] = c * v[a] - s * v[b];
@@ -98,13 +157,22 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
   }
   function perspective(q, state) {
     const [x, y, depth] = camera(q, state);
-    const k3 = 5 / (5 - depth);
+    const k3 = EYE / (EYE - depth);
     return { x: 250 + x * 69 * k3 * state.zoom,
       y: 220 - y * 69 * k3 * state.zoom, depth };
   }
-  function fitPoints(raw, reference = raw) {
-    if (!raw.length || !reference.length) return [];
-    const xs = reference.map(p => p.x), ys = reference.map(p => p.y);
+  // Ορατότητα έδρας με πραγματική προοπτική: το μάτι είναι στο (0, 0, EYE) σε συντεταγμένες κάμερας.
+  function facing(normal, center, state) {
+    const [nx, ny, nz] = camera(normal, state);
+    const c = camera(center, state);
+    const view = [-c[0], -c[1], EYE - c[2]];
+    const length = Math.hypot(nx, ny, nz) * Math.hypot(...view);
+    return { front: (nx * view[0] + ny * view[1] + nz * view[2]) / Math.max(1e-12, length),
+      light: Math.max(0, (nx * .3 + ny * .6 + nz * .7) / Math.max(1e-12, Math.hypot(nx, ny, nz))), z: c[2] };
+  }
+  function fitPoints(raw) {
+    if (!raw.length) return [];
+    const xs = raw.map(p => p.x), ys = raw.map(p => p.y);
     const left = Math.min(...xs), right = Math.max(...xs);
     const top = Math.min(...ys), bottom = Math.max(...ys);
     const fit = Math.min(1, 440 / Math.max(1, right - left), 365 / Math.max(1, bottom - top));
@@ -153,14 +221,9 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
           return Math.atan2(dot(delta, v), dot(delta, u));
         };
         ids.sort((a, b) => angle(a) - angle(b));
-        const [nx, ny, nz] = camera(normal, state);
-        const [cx, cy, cz] = camera(center, state);
-        const view = [-cx, -cy, 5 - cz];
-        const front = (nx*view[0] + ny*view[1] + nz*view[2]) /
-          Math.max(1e-9, Math.hypot(...view));
-        const light = Math.max(0, nx * .3 + ny * .6 + nz * .7);
-        const z = ids.reduce((sum, id) => sum + camera(points3[id], state)[2], 0) / ids.length;
-        faces.push({ ids, front, light, z, key });
+        const { front, light, z } = facing(normal, center, state);
+        const w = ids.reduce((sum, id) => sum + rotated[id][3], 0) / ids.length;
+        faces.push({ ids, front, light, z, key, w });
       }
     const screen = fitPoints(points3.map(q => perspective(q, state)));
     const perimeter = new Map();
@@ -180,41 +243,31 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
   }
   function crossSection(rotated, state, phase) {
     const points3 = [];
-    const edgeToPoints = new Map();
-    const eps = 1e-8;
-    function insert(q) {
-      let index = points3.findIndex(p => p.reduce((sum, x, axis) =>
-        sum + (x - q[axis]) ** 2, 0) < 1e-12);
-      if (index < 0) { index = points3.length; points3.push(q); }
-      return index;
-    }
+    const edgeToPoint = new Map();
     for (const edge of edges) {
       const a = rotated[edge.a], b = rotated[edge.b];
-      const da = a[3] - state.slice, db = b[3] - state.slice;
-      const ids = [];
-      if (Math.abs(da) < eps) ids.push(insert(a.slice(0, 3)));
-      if (Math.abs(db) < eps) ids.push(insert(b.slice(0, 3)));
-      if (da * db < -eps * eps) {
-        const t = da / (da - db);
-        ids.push(insert([0, 1, 2].map(axis => a[axis] + t * (b[axis] - a[axis]))));
-      }
-      if (ids.length) edgeToPoints.set(edge, [...new Set(ids)]);
+      const denominator = b[3] - a[3];
+      if (Math.abs(denominator) < 1e-9) continue;
+      const t = (state.slice - a[3]) / denominator;
+      if (t < -1e-8 || t > 1 + 1e-8) continue;
+      const q = [0, 1, 2].map(axis => a[axis] + t * (b[axis] - a[axis]));
+      let index = points3.findIndex(p => p.reduce((sum, x, axis) => sum + (x - q[axis]) ** 2, 0) < 1e-12);
+      if (index < 0) { index = points3.length; points3.push(q); }
+      edgeToPoint.set(edge, index);
     }
-    // On W = constant, the 4D perspective is a uniform scale of the section.
-    const k4 = state.depth / (state.depth - state.slice);
-    const section3 = points3.map(q => q.map(value => value * k4));
-    const screen = fitPoints(section3.map(q => perspective(q, state)));
+    const screen = fitPoints(points3.map(q => perspective(q, state)));
     const sectionFaces = [];
     const sectionEdges = new Map();
     const seenFaces = new Set();
     for (let fixed = 0; fixed < 4; fixed++) for (let side = 0; side < 2; side++) {
-      const ids = [...new Set(edges.filter(edge => edgeToPoints.has(edge) &&
+      const ids = [...new Set(edges.filter(edge => edgeToPoint.has(edge) &&
         ((edge.a >> fixed) & 1) === side && ((edge.b >> fixed) & 1) === side)
-        .flatMap(edge => edgeToPoints.get(edge)))];
+        .map(edge => edgeToPoint.get(edge)))];
       if (ids.length < 3) continue;
-      const signature = [...ids].sort((a,b) => a-b).join('-');
-      if (seenFaces.has(signature)) continue;
-      seenFaces.add(signature);
+      // Όταν το επίπεδο περιέχει ολόκληρο τετράγωνο του υπερκύβου, δύο κελιά δίνουν το ίδιο πολύγωνο.
+      const faceKey = ids.slice().sort((a, b) => a - b).join('-');
+      if (seenFaces.has(faceKey)) continue;
+      seenFaces.add(faceKey);
       const axis4 = [0, 0, 0, 0]; axis4[fixed] = side ? 1 : -1;
       const normal = rotate4(axis4, state, phase);
       const length = Math.hypot(normal[0], normal[1], normal[2]);
@@ -232,14 +285,9 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
         return Math.atan2(dot(v), dot(u));
       };
       ids.sort((a, b) => angle(a) - angle(b));
-      const [nx, ny, nz] = camera(n, state);
-      const [cx, cy, cz] = camera(center.map(value => value * k4), state);
-      const view = [-cx, -cy, 5 - cz];
-      const front = (nx*view[0] + ny*view[1] + nz*view[2]) /
-        Math.max(1e-9, Math.hypot(...view));
-      const light = Math.max(0, nx * .3 + ny * .6 + nz * .7);
-      const z = ids.reduce((sum, i) => sum + camera(section3[i], state)[2], 0) / ids.length;
-      sectionFaces.push({ ids, front, light, z, key: fixed + '-' + side });
+      const { front, light } = facing(n, center, state);
+      const z = ids.reduce((sum, i) => sum + screen[i].depth, 0) / ids.length;
+      sectionFaces.push({ ids, front, light, z, key: fixed + '-' + side, cell: fixed * 2 + side });
       ids.forEach((a, i) => {
         const b = ids[(i + 1) % ids.length];
         const key = Math.min(a, b) + '-' + Math.max(a, b);
@@ -248,16 +296,28 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
         sectionEdges.set(key, item);
       });
     }
-    return { screen, section3, vertices: screen.map((_, i) => i),
-      visibleVertices: [...new Set(sectionFaces.filter(face => face.front > 1e-6).flatMap(face => face.ids))],
+    return { screen, vertices: screen.map((_, i) => i), visibleVertices: screen.map((_, i) => i),
       faces: sectionFaces.sort((a, b) => a.z - b.z),
       edges: [...sectionEdges.values()].sort((a, b) =>
         (screen[a.a].depth + screen[a.b].depth) - (screen[b.a].depth + screen[b.b].depth)) };
   }
+
+  const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   function App() {
     const [s, setS] = React.useState(initial);
     const [phase, setPhase] = React.useState(0);
+    const [colors, setColors] = React.useState(loadColors);
+    const [panelOpen, setPanelOpen] = React.useState(false);
+    const [dark, setDark] = React.useState(darkQuery ? darkQuery.matches : false);
     const dragging = React.useRef(null);
+    React.useEffect(() => {
+      if (!darkQuery) return;
+      const update = e => setDark(e.matches);
+      if (darkQuery.addEventListener) darkQuery.addEventListener('change', update);
+      else darkQuery.addListener(update);
+      return () => darkQuery.removeEventListener ? darkQuery.removeEventListener('change', update) : darkQuery.removeListener(update);
+    }, []);
+    React.useEffect(() => saveColors(colors), [colors]);
     React.useEffect(() => {
       if (!s.playing) return;
       let frame, previous;
@@ -270,18 +330,9 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
       return () => cancelAnimationFrame(frame);
     }, [s.playing]);
     const rotated = vertices.map(v => rotate4(v, s, phase));
-    const rawPoints = rotated.map(v => project4(v, s));
-    const points = fitPoints(rawPoints);
+    const points = fitPoints(rotated.map(v => project4(v, s)));
     const solid = s.show3D ? (s.mode === 'projection' ? hull3D(rotated, s) :
       crossSection(rotated, s, phase)) : { screen: [], vertices: [], visibleVertices: [], faces: [], edges: [] };
-    const cutPoints = s.mode === 'slice' && s.show3D ?
-      fitPoints(solid.section3.map(q => perspective(q, s)), rawPoints) : [];
-    const z4 = points.map(p => p.depth), z3 = solid.screen.map(p => p.depth);
-    const leftColor = value => colorAt(s.map4, unit(value, Math.min(...z4), Math.max(...z4)),
-      s.color4 || 'var(--viz-series-1)');
-    const rightColor = value => colorAt(s.map3,
-      unit(value, Math.min(...z3), Math.max(...z3)),
-      s.color3 || 'var(--viz-series-2)');
     function footprint(w) {
       const group = points.slice(w * 8, w * 8 + 8);
       return (Math.max(...group.map(p => p.x)) - Math.min(...group.map(p => p.x))) *
@@ -295,6 +346,26 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
     const exactCube = !s.playing && phase === 0 && s.xw === 0 && s.yw === 0 &&
       s.zw === 0 && s.show3D && (s.mode === 'projection' || s.slice === 0);
     const set = (key, value) => setS(old => ({ ...old, [key]: value }));
+    const setColor = (key, value) => setColors(old => ({ ...old, [key]: value }));
+
+    // ----- χρωματικές βοηθητικές -----
+    const theme = dark ? THEME.dark : THEME.light;
+    const colorA = colors.c4a || theme.a;
+    const colorB = colors.c4b || theme.b;
+    const color3 = colors.c3 || theme.b;
+    const cm = t => sampleStops(CMAPS[colors.cmap].stops, colors.reverse ? 1 - t : t);
+    const wMax = Math.max(1e-6, ...rotated.map(p => Math.abs(p[3])));
+    const tw = w => (w / wMax + 1) / 2;
+    const axisT = axis => (axis + .5) / 4; // κέντρα 4 ισομήκων διαστημάτων, μακριά από τα σκούρα άκρα
+    // περίγραμμα: σκοτεινό/φωτεινό όταν το χρώμα έχει χαμηλή αντίθεση με το φόντο, αλλιώς «κενό» στο χρώμα του φόντου
+    const casing = (...hexes) => Math.min(...hexes.map(x => contrast(x, theme.bg))) < 2.2 ?
+      { stroke: 'var(--foreground)', opacity: .3 } : { stroke: 'var(--background)', opacity: .9 };
+    const wireUsesMap = colors.wire === 'w' || colors.wire === 'axis';
+    const solidUsesMap = colors.solid === 'cmap';
+    const faceColor = face => !solidUsesMap ? color3 :
+      (s.mode === 'projection' ? cm(tw(face.w)) : cm((face.cell + .5) / 8));
+    const glowColor = solidUsesMap ? cm(.5) : color3;
+
     function start(e) { dragging.current = { x: e.clientX, y: e.clientY, yaw: s.yaw, pitch: s.pitch }; e.currentTarget.setPointerCapture(e.pointerId); }
     function move(e) {
       if (!dragging.current) return;
@@ -323,26 +394,80 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
           h('option', { value: 'projection' }, 'Προβολή · περίβλημα'),
           h('option', { value: 'slice' }, 'Τομή · επίπεδο W')));
     }
-    function paletteGroup(key, label, chosen, map) {
-      return h('div', { className: 'hc-palette-group', key },
-        h('strong', null, label),
-        h('label', null, 'Χρώμα',
-          h('input', { className:'form-control form-control-color', type:'color',
-            value: chosen || (key === '4' ? '#3164bf' : '#c75483'),
-            onChange: e => setS(old => ({ ...old,
-              ['color'+key]: e.target.value, ['map'+key]: 'mono' })),
-            'aria-label': 'Χρώμα για ' + label })),
-        h('label', null, 'Colormap',
-          h('select', { className:'form-select', value:map,
-            onChange:e => set('map'+key, e.target.value),
-            'aria-label':'Colormap για ' + label },
-            h('option', { value:'mono' }, 'Ενιαίο χρώμα'),
-            h('option', { value:'viridis' }, 'Viridis · βάθος'),
-            h('option', { value:'plasma' }, 'Plasma · βάθος'),
-            h('option', { value:'coolwarm' }, 'Coolwarm · βάθος'))));
+    function colorInput(key, label, value) {
+      return h('label', { className: 'hc-color', key },
+        h('input', { type: 'color', value, onChange: e => setColor(key, e.target.value), 'aria-label': label }),
+        h('span', null, label));
+    }
+    function colorPanel() {
+      return h('section', { className: 'hc-panel', id: 'hc-color-panel', 'aria-label': 'Ρυθμίσεις χρωμάτων' },
+        h('div', { className: 'hc-panel-head' },
+          h('strong', null, 'Χρώματα'),
+          h('button', { type: 'button', className: 'btn btn-sm', onClick: () => setPanelOpen(false) }, 'Κλείσιμο')),
+        h('span', { className: 'hc-panel-label', id: 'hc-cmap-label' }, 'Colormap'),
+        h('div', { className: 'hc-swatches', role: 'radiogroup', 'aria-labelledby': 'hc-cmap-label' },
+          Object.keys(CMAPS).map(key => h('button', { key, type: 'button', role: 'radio',
+            'aria-checked': colors.cmap === key, className: 'hc-swatch' + (colors.cmap === key ? ' is-active' : ''),
+            onClick: () => setColor('cmap', key) },
+            h('span', { className: 'hc-swatch-bar', style: { background: cmapCss(key, colors.reverse) } }),
+            h('span', null, CMAPS[key].name)))),
+        h('div', { className: 'hc-panel-row' },
+          h('label', { className: 'form-check' },
+            h('input', { className: 'form-check-input', type: 'checkbox', checked: colors.reverse,
+              onChange: e => setColor('reverse', e.target.checked) }),
+            h('span', null, 'Αντιστροφή colormap'))),
+        h('div', { className: 'hc-panel-grid' },
+          h('div', { className: 'hc-field' },
+            h('label', { className: 'hc-field' },
+              h('span', { className: 'hc-panel-label' }, 'Υπερκύβος 4D (αριστερά)'),
+              h('select', { className: 'form-select', value: colors.wire, onChange: e => setColor('wire', e.target.value) },
+                h('option', { value: 'w' }, 'Κατά W · colormap (βάθος 4ης διάστασης)'),
+                h('option', { value: 'axis' }, 'Κατά άξονα ακμής · colormap (X, Y, Z, W)'),
+                h('option', { value: 'cubes' }, 'Δύο κύβοι · εσωτερικός / εξωτερικός'),
+                h('option', { value: 'single' }, 'Ενιαίο χρώμα'))),
+            colors.wire === 'cubes' && h('div', { className: 'hc-colors' },
+              colorInput('c4a', 'Εξωτερικός κύβος', colorA), colorInput('c4b', 'Εσωτερικός κύβος', colorB)),
+            colors.wire === 'single' && h('div', { className: 'hc-colors' }, colorInput('c4a', 'Χρώμα ακμών', colorA)),
+            colors.wire === 'w' && h('p', { className: 'hc-note' },
+              'Κάθε κορυφή παίρνει χρώμα από τη συντεταγμένη W μετά την περιστροφή. Κάθε ακμή είναι διαβάθμιση ανάμεσα στις δύο κορυφές της. Μεγαλύτερο W σημαίνει πιο κοντά στην 4D κάμερα.'),
+            colors.wire === 'axis' && h('p', { className: 'hc-note' },
+              'Οι 32 ακμές χωρίζονται σε 4 ομάδες των 8, μία για κάθε άξονα X, Y, Z, W του αρχικού υπερκύβου.')),
+          h('div', { className: 'hc-field' },
+            h('label', { className: 'hc-field' },
+              h('span', { className: 'hc-panel-label' }, '3D σχήμα (δεξιά)'),
+              h('select', { className: 'form-select', value: colors.solid, onChange: e => setColor('solid', e.target.value) },
+                h('option', { value: 'single' }, 'Ενιαίο χρώμα'),
+                h('option', { value: 'cmap' }, 'Colormap · προβολή κατά W, τομή κατά κελί'))),
+            colors.solid === 'single' && h('div', { className: 'hc-colors' }, colorInput('c3', 'Χρώμα σχήματος', color3)),
+            colors.solid === 'cmap' && h('p', { className: 'hc-note' },
+              'Προβολή: κάθε έδρα παίρνει το χρώμα του μέσου W των κορυφών της. Τομή: κάθε έδρα προέρχεται από ένα από τα 8 κελιά (X±, Y±, Z±, W±).'))),
+        h('div', { className: 'hc-panel-foot' },
+          h('button', { type: 'button', className: 'btn btn-sm btn-primary',
+            onClick: () => setColors(old => ({ ...old, ...RECOMMENDED_COLORS })) }, 'Προτεινόμενο για 4D'),
+          h('button', { type: 'button', className: 'btn btn-sm', onClick: () => setColors(DEFAULT_COLORS) }, 'Προεπιλεγμένα χρώματα')));
+    }
+    function wireKey() {
+      if (colors.wire === 'w') return h('div', { className: 'hc-key' },
+        h('span', { title: 'Μεγαλύτερο W = πιο κοντά στην 4D κάμερα' }, 'W −' + wMax.toFixed(2)),
+        h('span', { className: 'hc-key-bar', style: { background: cmapCss(colors.cmap, colors.reverse) }, 'aria-hidden': true }),
+        h('span', { title: 'Μεγαλύτερο W = πιο κοντά στην 4D κάμερα' }, '+' + wMax.toFixed(2)));
+      if (colors.wire === 'axis') return h('div', { className: 'hc-key' }, AXIS_NAMES.map((name, axis) =>
+        h('span', { key: name, className: 'hc-chip' }, h('i', { style: { background: cm(axisT(axis)) } }), 'ακμές ' + name)));
+      return h('div', { className: 'hc-key', 'aria-hidden': true });
+    }
+    function solidKey() {
+      if (!solidUsesMap || !s.show3D) return h('div', { className: 'hc-key', 'aria-hidden': true });
+      if (s.mode === 'projection') return h('div', { className: 'hc-key' },
+        h('span', null, 'μέσο W έδρας −'),
+        h('span', { className: 'hc-key-bar', style: { background: cmapCss(colors.cmap, colors.reverse) }, 'aria-hidden': true }),
+        h('span', null, '+'));
+      return h('div', { className: 'hc-key' }, Array.from({ length: 8 }, (_, cell) =>
+        h('span', { key: cell, className: 'hc-chip' }, h('i', { style: { background: cm((cell + .5) / 8) } }),
+          AXIS_NAMES[cell >> 1] + (cell & 1 ? '+' : '−'))));
     }
     function scene(shaded) {
       const prefix = shaded ? 'hc-section' : 'hc-wire';
+      const glow = shaded ? glowColor : (colors.wire === 'cubes' || colors.wire === 'single' ? colorA : cm(.5));
       return h('svg', { viewBox: '0 0 500 440', role: 'img',
         'aria-label': shaded ? (s.mode === 'projection' ? 'Το κυρτό εξωτερικό περίβλημα της 3D προβολής.' :
           'Η τρισδιάστατη τομή του περιστρεφόμενου υπερκύβου.') :
@@ -353,52 +478,70 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
         style: { cursor: dragging.current ? 'grabbing' : 'grab' } },
         h('defs', null,
           h('radialGradient', { id: prefix + '-glow' },
-            h('stop', { offset: '0%', stopColor: shaded ? 'var(--viz-series-2)' : 'var(--viz-series-1)', stopOpacity: shaded ? '.12' : '.1' }),
-            h('stop', { offset: '100%', stopColor: shaded ? 'var(--viz-series-2)' : 'var(--viz-series-1)', stopOpacity: '0' })),
+            h('stop', { offset: '0%', stopColor: glow, stopOpacity: shaded ? '.12' : '.1' }),
+            h('stop', { offset: '100%', stopColor: glow, stopOpacity: '0' })),
           h('radialGradient', { id: prefix + '-shadow' },
-            h('stop', { offset: '0%', stopColor: 'var(--viz-series-2)', stopOpacity: '.25' }),
-            h('stop', { offset: '100%', stopColor: 'var(--viz-series-2)', stopOpacity: '0' }))),
+            h('stop', { offset: '0%', stopColor: glowColor, stopOpacity: '.25' }),
+            h('stop', { offset: '100%', stopColor: glowColor, stopOpacity: '0' })),
+          !shaded && colors.wire === 'w' && orderedEdges.map(edge => {
+            const a = points[edge.a], b = points[edge.b];
+            return h('linearGradient', { key: edge.i, id: prefix + '-edge-' + edge.i, gradientUnits: 'userSpaceOnUse',
+              x1: a.x, y1: a.y, x2: b.x, y2: b.y },
+              h('stop', { offset: '0%', stopColor: cm(tw(rotated[edge.a][3])) }),
+              h('stop', { offset: '100%', stopColor: cm(tw(rotated[edge.b][3])) }));
+          })),
         h('ellipse', { cx: 250, cy: 220, rx: 245, ry: 208, fill: 'url(#' + prefix + '-glow)' }),
         shaded && s.show3D && h('ellipse', { cx: 255, cy: 390, rx: 155, ry: 29, fill: 'url(#' + prefix + '-shadow)' }),
         shaded && !s.show3D && h('text', { x: 250, y: 220, textAnchor: 'middle', fill: 'var(--muted-foreground)' },
           'Ενεργοποίησε το 3D σχήμα'),
-        shaded && solid.faces.filter(face => face.front > 1e-6).map(face =>
-          h('polygon', { key: face.key,
+        shaded && solid.faces.filter(face => s.mode === 'slice' || face.front > 1e-6).map(face => {
+          const fill = faceColor(face);
+          return h('polygon', { key: face.key,
             points: face.ids.map(index => solid.screen[index].x + ',' + solid.screen[index].y).join(' '),
-            fill: rightColor(face.z),
-            fillOpacity: Math.min(.94, .66 + face.light * .22 + face.front * .08),
-            stroke: rightColor(face.z), strokeOpacity: .5,
+            fill,
+            fillOpacity: face.front > 0 ? (s.mode === 'projection' ? Math.min(.94, .66 + face.light * .22 + face.front * .08) :
+              Math.min(.7, .24 + face.light * .28 + face.front * .14)) : .045,
+            stroke: fill, strokeOpacity: face.front > 0 ? .5 : .12,
             strokeWidth: 1,
-            style: { filter: 'drop-shadow(0px 5px 7px ' + rightColor(face.z) + ')' } })),
-        shaded && solid.edges.filter(edge => edge.front > 1e-6).map((edge, i) => {
+            style: face.front > 0 ? { filter: 'drop-shadow(0px 5px 7px ' + fill + ')' } : undefined });
+        }),
+        shaded && solid.edges.filter(edge => s.mode === 'slice' || edge.front > 1e-6).map((edge, i) => {
           const a = solid.screen[edge.a], b = solid.screen[edge.b];
           return h('line', { key: i, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-            stroke: rightColor((a.depth+b.depth)/2), strokeOpacity: .95,
-            strokeWidth: 2.3, strokeLinecap: 'round' });
+            stroke: solidUsesMap ? 'var(--foreground)' : color3,
+            strokeOpacity: solidUsesMap ? (edge.front > 0 ? .55 : .2) : (edge.front > 0 ? .95 : .36),
+            strokeWidth: edge.front > 0 ? (solidUsesMap ? 1.6 : 2.3) : 1.5, strokeLinecap: 'round' });
         }),
-        shaded && solid.visibleVertices.map(i => h('circle', { key: i, cx: solid.screen[i].x, cy: solid.screen[i].y,
-          r: 3.2, fill: rightColor(solid.screen[i].depth), stroke: 'var(--background)', strokeWidth: 1.2 })),
+        shaded && solid.visibleVertices.map(i => {
+          const fill = solidUsesMap && s.mode === 'projection' ? cm(tw(rotated[i][3])) : (solidUsesMap ? 'var(--foreground)' : color3);
+          return h('circle', { key: i, cx: solid.screen[i].x, cy: solid.screen[i].y,
+            r: 3.2, fill, stroke: 'var(--background)', strokeWidth: 1.2 });
+        }),
         !shaded && orderedEdges.map(edge => {
           const a = points[edge.a], b = points[edge.b];
-          const inner = edge.group === innerW;
-          const color = s.map4 === 'mono' && !s.color4 && inner ?
-            'var(--viz-series-2)' : leftColor(edge.z);
           const opacity = Math.min(.98, Math.max(.34, .65 + edge.z * .11));
-          return h('line', { key: edge.i, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-            stroke: color, strokeOpacity: edge.group === -1 ? opacity * .66 : opacity,
-            strokeWidth: inner ? 2.4 : 1.8, strokeLinecap: 'round' });
+          const line = { x1: a.x, y1: a.y, x2: b.x, y2: b.y, strokeLinecap: 'round' };
+          if (colors.wire === 'cubes' || colors.wire === 'single') {
+            const inner = colors.wire === 'cubes' && edge.group === innerW;
+            return h('line', { key: edge.i, ...line, stroke: inner ? colorB : colorA,
+              strokeOpacity: edge.group === -1 && colors.wire === 'cubes' ? opacity * .66 : opacity,
+              strokeWidth: inner ? 2.4 : (colors.wire === 'single' ? 2 : 1.8) });
+          }
+          const ends = colors.wire === 'w' ? [cm(tw(rotated[edge.a][3])), cm(tw(rotated[edge.b][3]))] : [cm(axisT(edge.axis))];
+          const halo = casing(...ends);
+          return h(React.Fragment, { key: edge.i },
+            h('line', { ...line, stroke: halo.stroke, strokeOpacity: halo.opacity * Math.min(1, opacity + .2), strokeWidth: 4.4 }),
+            h('line', { ...line, stroke: colors.wire === 'w' ? 'url(#' + prefix + '-edge-' + edge.i + ')' : ends[0],
+              strokeOpacity: Math.min(1, opacity + .15), strokeWidth: 2.5 }));
         }),
-        !shaded && cutPoints.length > 0 && solid.edges.map((edge, i) => {
-          const a=cutPoints[edge.a], b=cutPoints[edge.b];
-          return h('line', { key:'cut-'+i, x1:a.x, y1:a.y, x2:b.x, y2:b.y,
-            stroke:rightColor((solid.screen[edge.a].depth+solid.screen[edge.b].depth)/2),
-            strokeOpacity:.92, strokeWidth:3.5, strokeLinecap:'round' });
-        }),
-        !shaded && points.map((p, i) => h('circle', { key: i, cx: p.x, cy: p.y,
-          r: Math.max(3, 3.8 + p.depth * .38),
-          fill: s.map4 === 'mono' && !s.color4 && (i >> 3) === innerW ?
-            'var(--viz-series-2)' : leftColor(p.depth),
-          stroke: 'var(--background)', strokeWidth: 1.35 }))); 
+        !shaded && points.map((p, i) => {
+          let fill = (i >> 3) === innerW ? colorB : colorA, stroke = 'var(--background)';
+          if (colors.wire === 'single') fill = colorA;
+          if (colors.wire === 'axis') fill = 'var(--foreground)';
+          if (colors.wire === 'w') { fill = cm(tw(rotated[i][3])); stroke = casing(fill).stroke; }
+          return h('circle', { key: i, cx: p.x, cy: p.y,
+            r: Math.max(3, 3.8 + p.depth * .38), fill, stroke, strokeWidth: 1.35 });
+        }));
     }
     return h(React.Fragment, null,
       h('div', { className: 'hc-top' },
@@ -412,24 +555,25 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
                 xw: 0, yw: 0, zw: 0, slice: 0, zoom: 1 }));
               setPhase(0);
             } }, 'Δείξε 3D κύβο'),
+          h('button', { type: 'button', className: 'btn', 'aria-expanded': panelOpen, 'aria-controls': 'hc-color-panel',
+            onClick: () => setPanelOpen(open => !open) },
+            h('span', { 'aria-hidden': true, style: { display: 'inline-block', width: 22, height: 10, borderRadius: 3,
+              background: cmapCss(colors.cmap, colors.reverse) } }), 'Χρώματα'),
+          h('a', { className: 'btn', href: 'hypercube-math.pdf', target: '_blank', rel: 'noopener' },
+            'Μαθηματική τεκμηρίωση (PDF)'),
+          h('a', { className: 'btn', href: 'dimensions.html' }, 'Διαστάσεις 0–11'),
           h('button', { type: 'button', className: 'btn',
-            onClick: () => { setS(initial); setPhase(0); } }, 'Επαναφορά'),
-          h('button', { type:'button', className:'btn', 'aria-expanded':s.paletteOpen,
-            onClick:()=>set('paletteOpen',!s.paletteOpen) }, 'Χρώματα / colormaps'),
-          h('a', { className:'btn', href:'hypercube-math.pdf', download:'hypercube-math.pdf' },
-            'Μαθηματική τεκμηρίωση (PDF)'))),
+            onClick: () => { setS(initial); setPhase(0); } }, 'Επαναφορά'))),
+      panelOpen && colorPanel(),
       h('div', { className: 'hc-stage' },
         h('div', { className: 'hc-view' },
           h('div', { className: 'hc-view-label' }, h('strong', null, 'Υπερκύβος 4D'), h('span', null, '16 κορυφές · 32 ακμές')),
-          scene(false)),
+          scene(false), wireKey()),
         h('div', { className: 'hc-view' },
           h('div', { className: 'hc-view-label' }, h('strong', null, s.mode === 'projection' ? 'Προβολή στον 3D χώρο' : 'Τομή στον 3D χώρο'),
             h('span', null, s.show3D ? solid.vertices.length + ' κορυφές · ' + solid.faces.length + ' έδρες' : 'ανενεργή')),
-          scene(true))),
+          scene(true), solidKey())),
       h('div', { className: 'hc-options' }, modeControl()),
-      s.paletteOpen && h('div', { className:'hc-palette' },
-        paletteGroup('4','Υπερκύβος 4D',s.color4,s.map4),
-        paletteGroup('3','3D προβολή / τομή',s.color3,s.map3)),
       h('div', { className: 'hc-controls' },
         slider('xw', 'Περιστροφή X–W', -180, 180, 1, '°'),
         slider('yw', 'Περιστροφή Y–W', -180, 180, 1, '°'),
@@ -442,11 +586,10 @@ button:focus-visible, input:focus-visible { outline:2px solid var(--viz-series-1
           ': X–W = 0°, Y–W = 0°, Z–W = 0°' + (s.mode === 'slice' ? ', W = 0' : '') +
           '. Η αυτόματη περιστροφή σταμάτησε.' :
           s.mode === 'projection' ? 'Δεξιά: το κυρτό εξωτερικό περίβλημα των 16 κορυφών αφού προβληθούν από 4D σε 3D.' :
-            'Δεξιά: πραγματική τομή του 4D υπερκύβου στο W = ' + s.slice +
-            ', προβαλλόμενη με την ίδια 4D προοπτική. Αριστερά τονίζονται οι ακμές της τομής.'));
+            'Δεξιά: τομή του 4D υπερκύβου με το επιλεγμένο επίπεδο W.'));
   }
   ReactDOM.createRoot(root).render(h(App));
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
-
 </body></html>

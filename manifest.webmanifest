@@ -1,0 +1,23 @@
+{
+  "name": "Διαστάσεις 0–11 και Υπερκύβος 4D",
+  "short_name": "Διαστάσεις",
+  "description": "Ο Καθηγητής ταξιδεύει από τη διάσταση 0 ως τη θεωρία Μ, με ασανσέρ 4D, ταξίδι ως το μήκος Planck και τον υπερκύβο.",
+  "lang": "el",
+  "start_url": "./dimensions.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0d0b1f",
+  "theme_color": "#0d0b1f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Ασανσέρ 4D", "url": "./dimensions.html#mode=elevator" },
+    { "name": "Ταξίδι στο πολύ μικρό", "url": "./dimensions.html#mode=zoom" },
+    { "name": "Υπερκύβος 4D", "url": "./index.html" }
+  ]
+}

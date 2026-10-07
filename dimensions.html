@@ -1,0 +1,2260 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Διαδραστικό ταξίδι από τη διάσταση 0 έως την 11: το δημοφιλές μοντέλο των βίντεο και τι λέει πραγματικά η φυσική, με 3D γραφικά WebGL.">
+<title>Διαστάσεις 0–11</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d0b1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@200..800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --night: #0d0b1f;
+  --ink: #eeeaff;
+  --haze: #a49dcf;
+  --glass: rgba(22, 18, 48, .62);
+  --glass-edge: rgba(190, 176, 255, .16);
+  --dim: #59d6ff;
+  --font: 'Commissioner', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--night); color: var(--ink); font-family: var(--font); overflow: hidden; }
+body { font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+button, a { font: inherit; color: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--dim); outline-offset: 3px; }
+.glass { background: var(--glass); border: 1px solid var(--glass-edge); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
+
+/* top bar */
+.topbar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; pointer-events: none; z-index: 5; }
+.topbar > * { pointer-events: auto; }
+.back { text-decoration: none; color: var(--haze); padding: 7px 12px; border-radius: 999px; border: 1px solid var(--glass-edge); background: rgba(13, 11, 31, .4); }
+.back:hover { color: var(--ink); }
+.modes { display: inline-flex; padding: 4px; border-radius: 999px; gap: 2px; }
+.modes button { border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; cursor: pointer; color: var(--haze); font-weight: 500; white-space: nowrap; }
+.modes button[aria-selected="true"] { background: var(--ink); color: var(--night); }
+.doc { text-decoration: none; padding: 7px 14px; border-radius: 999px; font-weight: 500; }
+.doc:hover { border-color: var(--dim); }
+
+/* title block: the numeral is the hero */
+.title { position: fixed; left: 104px; top: 70px; z-index: 4; pointer-events: none; max-width: min(520px, 46vw); }
+.numeral { font-size: clamp(110px, 23vh, 230px); line-height: .82; font-weight: 200; color: transparent; -webkit-text-stroke: 1.6px var(--dim); text-shadow: 0 0 38px color-mix(in srgb, var(--dim) 45%, transparent); font-variant-numeric: lining-nums; letter-spacing: -.02em; transition: -webkit-text-stroke-color .6s; }
+.numeral.swap { animation: numeral-in .9s cubic-bezier(.2,.8,.2,1); }
+@keyframes numeral-in { from { opacity: 0; transform: translateY(18px) scale(.92); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+.title h1 { font-size: clamp(26px, 4.2vh, 40px); font-weight: 650; margin: 10px 0 2px; letter-spacing: -.01em; }
+.title .lede { color: var(--haze); margin: 0; font-size: 16px; max-width: 34ch; text-shadow: 0 1px 14px rgba(13,11,31,.95), 0 0 2px rgba(13,11,31,.9); }
+.title h1 { text-shadow: 0 2px 18px rgba(13,11,31,.9); }
+.numeral sup { font-size: .32em; -webkit-text-stroke-width: 1px; vertical-align: top; position: relative; top: .25em; }
+
+/* the ladder of dimensions */
+.ladder { position: fixed; left: 14px; top: 50%; transform: translateY(-50%); z-index: 4; padding: 8px 6px; border-radius: 18px; }
+.ladder ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column-reverse; gap: 2px; }
+.ladder button { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 4px; width: 74px; border: 0; background: transparent; cursor: pointer; padding: 5px 6px; border-radius: 10px; color: var(--haze); text-align: left; }
+.ladder button .n { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.ladder button .bar { height: 3px; border-radius: 2px; background: currentColor; opacity: .35; width: 14px; transition: width .4s, opacity .4s; }
+.ladder button:hover { color: var(--ink); }
+.ladder button[aria-current="true"] { color: var(--c); }
+.ladder button[aria-current="true"] .bar { width: 34px; opacity: 1; box-shadow: 0 0 10px var(--c); }
+.ladder .tour { margin-top: 8px; width: 74px; border: 1px solid var(--glass-edge); border-radius: 10px; padding: 6px 4px; font-size: 12px; color: var(--haze); background: transparent; cursor: pointer; line-height: 1.2; }
+.ladder .tour[aria-pressed="true"] { color: var(--night); background: var(--dim); border-color: var(--dim); }
+
+/* info card */
+.info { position: fixed; right: 18px; bottom: 18px; width: min(420px, calc(100vw - 36px)); border-radius: 18px; padding: 14px 16px 16px; z-index: 4; }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.tabs button { border: 0; background: transparent; color: var(--haze); padding: 6px 10px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.tabs button[aria-selected="true"] { color: var(--ink); background: rgba(255,255,255,.08); box-shadow: inset 0 -2px 0 var(--dim); }
+.info .body { font-size: 15px; line-height: 1.55; max-height: 34vh; overflow: auto; }
+.info .body p { margin: 0 0 8px; }
+.info .body .formula { font-family: 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', serif; font-size: 16px; color: var(--ink); background: rgba(255,255,255,.05); border-radius: 8px; padding: 4px 8px; display: inline-block; }
+.info .body .tag { color: var(--dim); font-weight: 600; }
+.info .collapse { position: absolute; top: 10px; right: 10px; border: 0; background: transparent; color: var(--haze); cursor: pointer; padding: 4px 8px; border-radius: 8px; display: none; }
+
+/* context controls */
+.ctx { position: fixed; left: 18px; bottom: 18px; z-index: 4; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 14px; border-radius: 16px; max-width: calc(100vw - 474px); }
+.ctx[hidden] { display: none; }
+.ctx .btn { border: 1px solid var(--glass-edge); background: rgba(255,255,255,.06); border-radius: 10px; padding: 8px 14px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+.ctx .btn.primary { background: var(--dim); color: var(--night); border-color: var(--dim); }
+.ctx .steps { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.ctx .steps li { font-size: 13px; color: var(--haze); padding: 4px 9px; border-radius: 999px; border: 1px solid var(--glass-edge); white-space: nowrap; }
+.ctx .steps li.on { color: var(--night); background: var(--dim); border-color: var(--dim); }
+.ctx input[type=range] { width: min(360px, 34vw); accent-color: var(--dim); }
+.ctx .readout { font-variant-numeric: tabular-nums; min-width: 170px; color: var(--haze); font-size: 13px; line-height: 1.3; }
+.ctx .readout b { color: var(--ink); font-weight: 600; font-size: 15px; }
+
+/* W gauge for the elevator */
+.wgauge { position: fixed; right: 30px; top: 50%; transform: translateY(-60%); z-index: 4; width: 64px; padding: 12px 10px; border-radius: 16px; text-align: center; font-size: 12px; color: var(--haze); }
+.wgauge[hidden] { display: none; }
+.wgauge .track { position: relative; height: 180px; width: 10px; margin: 8px auto; border-radius: 6px; background: rgba(255,255,255,.08); overflow: hidden; }
+.wgauge .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; border-radius: 6px; background: linear-gradient(to top, #6f8bff, #e07bff, #ffc35e); box-shadow: 0 0 14px #e07bff; }
+.wgauge b { display: block; color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+.wgauge .cnt { display: block; margin-top: 10px; }
+.wgauge .cnt b { font-size: 22px; color: var(--dim); }
+.lbl.sign { background: rgba(18,10,28,.82); border: 1px solid rgba(255,211,122,.5); border-radius: 6px; padding: 3px 8px; text-shadow: none; }
+.lbl.sign s { opacity: .7; }
+
+.caption { position: fixed; right: 18px; top: 70px; z-index: 4; padding: 10px 16px; border-radius: 12px; font-size: 15px; max-width: min(440px, calc(100vw - 40px)); transition: opacity .4s; }
+.caption[hidden] { display: none; }
+.caption p { margin: 6px 0 0; line-height: 1.5; }
+.captitle { display: block; font-size: 16px; font-weight: 650; margin-bottom: 6px; }
+.dimbar { display: flex; gap: 4px; flex-wrap: wrap; }
+.slot { display: inline-grid; place-items: center; min-width: 26px; height: 24px; padding: 0 4px; border-radius: 6px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.slot.big { background: var(--dim); color: var(--night); }
+.slot.compact { border: 1.5px solid #e07bff; color: #f2c4ff; background: rgba(224,123,255,.14); }
+.slot.idea { border: 1.5px dashed #ffd37a; color: #ffd37a; }
+.slot.maybe { border: 1px dashed rgba(255,255,255,.3); color: rgba(255,255,255,.45); }
+.slot.off { border: 1px solid rgba(255,255,255,.1); color: rgba(255,255,255,.25); }
+.dimlegend { margin-top: 8px; font-size: 12px; color: var(--haze); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dimlegend .slot { min-width: 20px; height: 18px; font-size: 10px; }
+
+.tools { display: flex; gap: 8px; align-items: center; }
+.short { display: none; }
+@media (max-width: 1440px) { .modes .long, .tools .long { display: none; } .modes .short, .tools .short { display: inline; } }
+.tool { border: 1px solid var(--glass-edge); background: rgba(13, 11, 31, .4); color: var(--ink); padding: 7px 12px; border-radius: 999px; cursor: pointer; font-weight: 500; text-decoration: none; }
+.tool:hover { border-color: var(--dim); }
+.tool[hidden] { display: none; }
+.intro { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: 24px; background: radial-gradient(ellipse at 45% 50%, rgba(13,11,31,.82), rgba(13,11,31,.5) 75%); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); transition: opacity .7s, visibility .7s; }
+body:has(.intro:not(.gone)) :is(.title, .ladder, .info, .modes) { opacity: 0; pointer-events: none; }
+:is(.title, .ladder, .info, .modes) { transition: opacity .6s; }
+.intro.gone { opacity: 0; visibility: hidden; pointer-events: none; }
+.intro-card { max-width: 640px; text-align: left; }
+.intro-num { font-size: clamp(90px, 20vw, 190px); font-weight: 200; line-height: .85; color: transparent; -webkit-text-stroke: 1.4px var(--dim); text-shadow: 0 0 40px color-mix(in srgb, var(--dim) 45%, transparent); letter-spacing: -.03em; }
+.intro h2 { font-size: clamp(34px, 6vw, 56px); font-weight: 700; margin: 6px 0 8px; letter-spacing: -.02em; }
+.intro p { color: var(--haze); font-size: 17px; margin: 0 0 22px; max-width: 46ch; }
+.intro-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.intro .big { font-size: 16px; font-weight: 600; padding: 12px 18px; border-radius: 12px; border: 1px solid var(--glass-edge); background: rgba(255,255,255,.06); cursor: pointer; }
+.intro .big.primary { background: var(--dim); color: var(--night); border-color: var(--dim); }
+.intro .big:hover { border-color: var(--dim); }
+.intro .keys { font-size: 14px; margin: 0; }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; background: var(--night); color: var(--haze); font-size: 15px; transition: opacity .6s; }
+#loading.done { opacity: 0; pointer-events: none; }
+#loading .ring { width: 54px; height: 54px; border-radius: 50%; border: 2px solid rgba(255,255,255,.12); border-top-color: var(--dim); animation: spin 1s linear infinite; margin: 0 auto 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.labels { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+.charpanel { position: fixed; top: 62px; right: 18px; z-index: 7; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 300px; }
+.charpanel[hidden] { display: none; }
+.charpanel strong { font-size: 16px; }
+.cp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cp-row > span { color: var(--haze); font-size: 14px; }
+.seg { display: inline-flex; padding: 3px; border-radius: 10px; background: rgba(255,255,255,.06); gap: 2px; }
+.seg button { border: 0; background: transparent; color: var(--haze); padding: 6px 10px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--night); }
+.sw { display: inline-flex; gap: 6px; }
+.sw button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: var(--s); cursor: pointer; }
+.sw button[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--dim); }
+.lbl.gate { background: rgba(13,11,31,.6); border: 1px solid currentColor; border-radius: 999px; padding: 3px 10px; text-shadow: none; }
+.lbl.gate b { margin-right: 5px; }
+.lbl.bubble { background: #fff; color: #18202d !important; border-radius: 12px; padding: 6px 11px; text-shadow: none; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.prompt { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; width: min(560px, calc(100vw - 480px)); }
+.prompt[hidden] { display: none; }
+.pnum { font-size: 46px; font-weight: 200; line-height: 1; color: transparent; -webkit-text-stroke: 1.3px var(--pc, var(--dim)); min-width: 54px; text-align: center; }
+.ptext { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--haze); flex: 1; min-width: 0; }
+.ptext strong { color: var(--ink); font-size: 17px; }
+.pgo { border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; cursor: pointer; background: var(--pc, var(--dim)); color: var(--night); white-space: nowrap; }
+.pgo kbd { font: inherit; font-size: 12px; border: 1px solid rgba(13,11,31,.35); border-radius: 5px; padding: 0 5px; margin-left: 6px; }
+.joy { position: fixed; left: 18px; bottom: 24px; width: 116px; height: 116px; border-radius: 50%; border: 1px solid var(--glass-edge); background: rgba(13,11,31,.32); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 5; display: none; touch-action: none; }
+.joy .knob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.45); }
+body.touch.mode-meadow .joy, body.touch.mode-time .joy { display: block; }
+.lbl { white-space: nowrap; letter-spacing: .005em; text-shadow: 0 0 10px rgba(13,11,31,.95), 0 0 3px rgba(13,11,31,.9), 0 0 18px currentColor; pointer-events: none; }
+.lbl b { font-weight: 800; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .title { left: 16px; top: 64px; max-width: calc(100vw - 32px); }
+  .numeral { font-size: clamp(84px, 17vh, 150px); }
+  .title .lede { font-size: 14px; }
+  .ladder { top: auto; bottom: auto; left: 0; right: 0; transform: none; border-radius: 0; padding: 4px 8px; position: fixed; bottom: calc(env(safe-area-inset-bottom) + 0px); top: auto; overflow-x: auto; }
+  .ladder ol { flex-direction: row; }
+  .ladder button { width: auto; grid-template-columns: auto; padding: 6px 8px; }
+  .ladder button .bar { display: none; }
+  .ladder .tour { display: none; }
+  .info { right: 8px; left: 8px; width: auto; bottom: 54px; padding: 10px 12px 12px; }
+  .info .body { max-height: 22vh; font-size: 14px; }
+  .info .collapse { display: block; }
+  .info.min .body, .info.min .tabs { display: none; }
+  .info.min { left: auto; padding: 4px; border-radius: 999px; }
+  .info.min .collapse { position: static; display: block; color: var(--ink); padding: 6px 12px; }
+  .ctx { left: 8px; right: 8px; top: auto; bottom: 60px; max-width: none; justify-content: center; padding: 8px 10px; }
+  .wgauge { right: 8px; transform: translateY(-80%); }
+  .modes button { padding: 6px 9px; font-size: 13px; }
+  .doc { padding: 6px 10px; font-size: 13px; }
+  .back { display: none; }
+  #fullscreen { display: none; }
+  .topbar { padding: 8px; gap: 6px; }
+  .modes { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .modes::-webkit-scrollbar { display: none; }
+  .tools { gap: 4px; }
+  .tool, .doc { padding: 6px 9px; }
+  .charpanel { left: 8px; right: 8px; min-width: 0; top: 56px; }
+  .seg button { padding: 6px 8px; font-size: 13px; }
+  body.mode-time .ctx { top: 200px; bottom: auto; }
+  body.mode-time .caption { display: none; }
+  .long { display: none; }
+  .short { display: inline; }
+  .title { top: 56px; left: 14px; }
+  .numeral { font-size: clamp(56px, 10vh, 96px) !important; }
+  .title h1 { font-size: 22px; margin-top: 4px; }
+  .title .lede { display: none; }
+  .tabs button { padding: 5px 7px; font-size: 13px; }
+  .info .collapse { font-size: 13px; }
+  .ctx .steps { display: none; }
+  .ctx input[type=range] { flex: 1; width: auto; }
+  .wgauge { top: 140px; transform: none; width: 50px; padding: 8px; }
+  .prompt { left: 8px; right: 8px; width: auto; transform: none; top: 150px; bottom: auto; padding: 10px; gap: 10px; }
+  .pnum { font-size: 34px; min-width: 40px; }
+  .ptext span { display: none; }
+  .joy { bottom: 64px; }
+  .wgauge .track { height: 100px; }
+  .caption { top: auto; bottom: 122px; right: 8px; left: 8px; max-width: none; font-size: 14px; }
+}
+@media (max-width: 860px) { body.mode-zoom .caption { bottom: 150px; } body.mode-elevator .ladder, body.mode-zoom .ladder { display: none; } body.mode-elevator .info, body.mode-zoom .info { bottom: 8px; } }
+@media (prefers-reduced-motion: reduce) { .numeral.swap { animation: none; } #loading .ring { animation: none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/",
+  "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/",
+  "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.39.5/build/index.js",
+  "n8ao": "https://cdn.jsdelivr.net/npm/n8ao@2.0.1/dist/N8AO.js"
+} }
+</script>
+</head>
+<body class="mode-ladder">
+<canvas id="gl" aria-label="Τρισδιάστατη σκηνή: ο Καθηγητής ταξιδεύει ανάμεσα στις διαστάσεις"></canvas>
+<div id="loading"><div><div class="ring"></div>Φόρτωση γραφικών…</div></div>
+
+<header class="topbar">
+  <a class="back" href="index.html">Υπερκύβος 4D</a>
+  <nav class="modes glass" role="tablist" aria-label="Λειτουργία">
+    <button role="tab" data-mode="ladder" aria-selected="true"><span class="long">Διαστάσεις 0–11</span><span class="short">0–11</span></button>
+    <button role="tab" data-mode="elevator" aria-selected="false"><span class="long">Ασανσέρ 4D</span><span class="short">Ασανσέρ</span></button>
+    <button role="tab" data-mode="zoom" aria-selected="false"><span class="long">Ταξίδι στο πολύ μικρό</span><span class="short">Μικρό</span></button>
+    <button role="tab" data-mode="meadow" aria-selected="false"><span class="long">Σπίτι στο λιβάδι</span><span class="short">Λιβάδι</span></button>
+    <button role="tab" data-mode="time" aria-selected="false"><span class="long">Ταξίδι στον χρόνο</span><span class="short">Χρόνος</span></button>
+  </nav>
+  <div class="tools">
+    <button class="tool" id="installTop" hidden>Εγκατάσταση</button>
+    <button class="tool" id="charBtn" aria-expanded="false" aria-controls="charPanel" aria-label="Χαρακτήρας"><span class="long">Χαρακτήρας</span><span class="short">⚙</span></button>
+    <button class="tool" id="fullscreen" aria-label="Πλήρης οθόνη"><span class="long">Πλήρης οθόνη</span><span class="short">⛶</span></button>
+    <a class="doc glass" href="dimensions-doc.pdf" target="_blank" rel="noopener"><span class="long">Τεκμηρίωση (PDF)</span><span class="short">PDF</span></a>
+  </div>
+</header>
+
+<div class="intro" id="intro" role="dialog" aria-labelledby="introTitle">
+  <div class="intro-card">
+    <div class="intro-num" aria-hidden="true">0–11</div>
+    <h2 id="introTitle">Διαστάσεις</h2>
+    <p>Ο Καθηγητής ταξιδεύει από το σημείο ως τη θεωρία Μ και μικραίνει σε κάθε βήμα. Για κάθε διάσταση βλέπεις τι λένε τα βίντεο και τι λέει η φυσική.</p>
+    <div class="intro-actions">
+      <button class="big primary" data-go="ladder">Ανέβα τις διαστάσεις</button>
+      <button class="big" data-go="elevator">Ασανσέρ 4D</button>
+      <button class="big" data-go="zoom">Ταξίδι στο πολύ μικρό</button>
+      <button class="big" data-go="meadow">Σπίτι στο λιβάδι</button>
+      <button class="big" data-go="time">Ταξίδι στον χρόνο</button>
+    </div>
+    <p class="keys">Με τα πλήκτρα ↑ και ↓ αλλάζεις διάσταση. Σύρε την εικόνα για να τη γυρίσεις. Το F ανοίγει την πλήρη οθόνη.</p>
+  </div>
+</div>
+
+<section class="title" aria-live="polite">
+  <div class="numeral" id="numeral">3</div>
+  <h1 id="dimName">Χώρος</h1>
+  <p class="lede" id="dimLede"></p>
+</section>
+
+<aside class="ladder glass" aria-label="Επιλογή διάστασης">
+  <ol id="ladder"></ol>
+  <button class="tour" id="tour" aria-pressed="false">Αυτόματη περιήγηση</button>
+</aside>
+
+<div class="caption glass" id="caption" hidden></div>
+
+<aside class="wgauge glass" id="wgauge" hidden aria-label="Θέση στη διάσταση W">
+  W
+  <div class="track"><div class="fill" id="wfill"></div></div>
+  <b id="wval">0,00</b>
+  <span class="cnt">μέσα<b id="wcount">0</b></span>
+</aside>
+
+<div class="ctx glass" id="ctxElevator" hidden>
+  <button class="btn primary" id="elevPlay">Ξεκίνα την επίδειξη</button>
+  <ol class="steps" id="elevSteps">
+    <li>1 Κλειστή πόρτα</li><li>2 Επιπεδοχώρος</li><li>3 Μπαίνουν από το W</li><li>4 Χωράνε όλοι</li>
+  </ol>
+</div>
+<div class="ctx glass" id="ctxZoom" hidden>
+  <button class="btn primary" id="zoomPlay">Ξεκίνα το ταξίδι</button>
+  <input type="range" id="zoomRange" min="0" max="35.3" step="0.01" value="0" aria-label="Πόσο μίκρυνε ο Καθηγητής (εκθέτης δύναμης του 10)">
+  <div class="readout" id="zoomReadout"></div>
+</div>
+
+<section class="charpanel glass" id="charPanel" hidden aria-label="Επιλογές χαρακτήρα">
+  <strong>Ο Καθηγητής</strong>
+  <div class="cp-row"><span>Σωματότυπος</span><div class="seg" data-k="build"><button data-v="slim">Λεπτός</button><button data-v="avg">Μέσος</button><button data-v="big">Γεροδεμένος</button></div></div>
+  <div class="cp-row"><span>Μαλλιά</span><div class="seg" data-k="hair"><button data-v="short">Κοντά</button><button data-v="bald">Φαλάκρα</button></div></div>
+  <div class="cp-row"><span>Γένια</span><div class="seg" data-k="beard"><button data-v="none">Χωρίς</button><button data-v="stubble">Κοντά</button><button data-v="full">Μούσι</button></div></div>
+  <div class="cp-row"><span>Γυαλιά</span><div class="seg" data-k="glasses"><button data-v="true">Ναι</button><button data-v="false">Όχι</button></div></div>
+  <div class="cp-row"><span>Μπλούζα</span><div class="sw" data-k="shirt"><button data-v="#232b52" style="--s:#232b52" aria-label="μπλε σκούρο"></button><button data-v="#1d1d24" style="--s:#1d1d24" aria-label="μαύρο"></button><button data-v="#2f6f4f" style="--s:#2f6f4f" aria-label="πράσινο"></button><button data-v="#8c2f39" style="--s:#8c2f39" aria-label="μπορντό"></button><button data-v="#d9d4c8" style="--s:#d9d4c8" aria-label="άσπρο"></button></div></div>
+</section>
+<div class="ctx glass" id="ctxTime" hidden>
+  <button class="btn primary" id="timeGo">Γύρνα 40 χρόνια πίσω</button>
+  <input type="range" id="timeRange" min="0" max="40" step="1" value="0" aria-label="Πόσα χρόνια πίσω">
+  <div class="readout" id="timeReadout"></div>
+</div>
+<div class="prompt glass" id="gatePrompt" hidden>
+  <div class="pnum" id="gpNum">4</div>
+  <div class="ptext"><strong id="gpName"></strong><span id="gpLede"></span></div>
+  <button class="pgo" id="gpGo">Ταξίδεψε <kbd>E</kbd></button>
+</div>
+<div class="joy" id="joy" aria-hidden="true"><div class="knob"></div></div>
+<section class="info glass" id="info" aria-label="Πληροφορίες">
+  <button class="collapse" id="collapse" aria-expanded="true">Απόκρυψη</button>
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="see" aria-selected="true">Τι βλέπεις</button>
+    <button role="tab" data-tab="video" aria-selected="false">Στο βίντεο</button>
+    <button role="tab" data-tab="physics" aria-selected="false">Στη φυσική</button>
+  </div>
+  <div class="body" id="infoBody"></div>
+</section>
+<p class="sr" id="srStatus" aria-live="polite"></p>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer, RenderPass, EffectPass, Effect, EffectAttribute, BloomEffect, VignetteEffect, NoiseEffect, ToneMappingEffect, ToneMappingMode, GodRaysEffect, BlendFunction, KernelSize } from 'postprocessing';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// =====================================================================
+// Περιεχόμενο: τι λέει το βίντεο και τι λέει η φυσική για κάθε διάσταση
+// =====================================================================
+const TRAVELER = 'ο Καθηγητής';
+const DIMS = [
+  { name: 'Σημείο', color: '#f4ead7', lede: 'Καμία κατεύθυνση, καμία έκταση. Μόνο μια θέση.',
+    see: '<p>Ο Καθηγητής έχει γίνει ένα σημείο. Δεν μπορεί να κινηθεί, γιατί δεν υπάρχει «πουθενά» να πάει.</p>',
+    video: '<p>Η αφετηρία του μοντέλου: ένα σημείο χωρίς μέγεθος.</p>',
+    physics: '<p>Ο χώρος διάστασης 0 δεν έχει συντεταγμένες: είναι ένα μόνο σημείο. Στα μαθηματικά γράφεται <span class="formula">ℝ⁰</span>.</p>' },
+  { name: 'Γραμμή', color: '#ffd37a', lede: 'Μία κατεύθυνση: μπρος και πίσω.',
+    see: '<p>Η Γραμμοχώρα: όλοι ζουν πάνω σε μία ευθεία. Ο Καθηγητής είναι το τμήμα με τη φωτεινή κεφαλή. Πηγαίνει μόνο μπρος-πίσω και δεν μπορεί να προσπεράσει κανέναν.</p>',
+    video: '<p>Ενώνεις δύο σημεία και παίρνεις μήκος, την 1η διάσταση.</p>',
+    physics: '<p>Χρειάζεται μία συντεταγμένη <span class="formula">x</span> για να πεις πού βρίσκεσαι.</p>' },
+  { name: 'Επίπεδο', color: '#8ef0c1', lede: 'Μήκος και πλάτος: ο Επιπεδοχώρος.',
+    see: '<p>Ο Καθηγητής είναι επίπεδος και ζει μέσα στο γυάλινο επίπεδο. Μια σφαίρα από τις 3 διαστάσεις περνά από μέσα. Οι επίπεδοι κάτοικοι δεν βλέπουν τη σφαίρα, μόνο έναν κύκλο που εμφανίζεται, μεγαλώνει, μικραίνει και χάνεται.</p>',
+    video: '<p>Μια δεύτερη κατεύθυνση κάθετη στην πρώτη. Ο κόσμος του βιβλίου «Επιπεδοχώρα» του Abbott (1884).</p>',
+    physics: '<p>Δύο συντεταγμένες <span class="formula">(x, y)</span>. Η ακτίνα του κύκλου που βλέπουν οι επίπεδοι είναι <span class="formula">r = √(R² − z²)</span>, όπου <i>z</i> η απόσταση του κέντρου της σφαίρας από το επίπεδο. Με τον ίδιο τύπο θα βλέπαμε εμείς έναν 4D επισκέπτη.</p>' },
+  { name: 'Χώρος', color: '#59d6ff', lede: 'Μήκος, πλάτος, ύψος: ο κόσμος μας.',
+    see: '<p>Ο Καθηγητής στο δικό μας χώρο, με τρεις κάθετους άξονες x, y, z. Σύρε την εικόνα για να δεις από άλλη γωνία.</p>',
+    video: '<p>Προσθέτεις βάθος: ο χώρος που ζούμε.</p>',
+    physics: '<p>Τρεις συντεταγμένες. Όλα τα πειράματα δείχνουν τρεις μεγάλες διαστάσεις χώρου. Αν υπάρχουν άλλες, είναι πολύ μικρές ή «κρυμμένες».</p>' },
+  { name: 'Χρόνος', color: '#6f8bff', lede: 'Όλη η διάρκεια σαν ένα μακρύ φίδι.',
+    see: '<p>Κάθε φωτεινό αντίγραφο είναι ο Καθηγητής σε προηγούμενη στιγμή. Περπατά σε κύκλο, άρα η διαδρομή του στον χρόνο γίνεται έλικας. Το χρώμα δείχνει πόσο παλιά είναι κάθε στιγμή.</p>',
+    video: '<p>Η 4η διάσταση είναι η διάρκεια. Από εκεί θα έβλεπες κάποιον σαν μακρύ «φίδι» από όλες τις θέσεις του, από τη γέννηση ως σήμερα.</p>',
+    physics: '<p>Στη σχετικότητα ο χρόνος είναι η 4η συντεταγμένη του χωροχρόνου, αλλά δεν είναι ίδιος με τον χώρο. Το πρόσημό του στην απόσταση είναι αντίθετο:</p><p><span class="formula">ds² = −c²dt² + dx² + dy² + dz²</span></p><p>Η διαδρομή ενός σώματος στον χωροχρόνο λέγεται κοσμική γραμμή. Αυτό είναι το «φίδι».</p>' },
+  { name: 'Διακλαδώσεις', color: '#a77bff', lede: 'Από κάθε στιγμή ξεκινούν πολλά μέλλοντα.',
+    see: '<p>Από το «τώρα» ξεκινούν πολλά πιθανά μέλλοντα. Ο Καθηγητής ακολουθεί ένα. Τα άλλα μένουν σαν αχνά κλαδιά.</p>',
+    video: '<p>Στην 5η διάσταση βλέπεις τα πιθανά μέλλοντα σαν κλαδιά. Σε κάποιες παραλλαγές των βίντεο, εδώ μπορείς να πας από σημείο σε σημείο του χρόνου.</p>',
+    physics: '<p>Καμία φυσική θεωρία δεν λέει ότι μια διάσταση είναι «τα πιθανά μέλλοντα». Το πιο κοντινό είναι η ερμηνεία των πολλών κόσμων της κβαντομηχανικής (Everett, 1957). Αυτή είναι όμως ερμηνεία, όχι διάσταση.</p><p>Στη θεωρία Kaluza–Klein (1921–26) η 5η διάσταση είναι χωρική, μικρή και τυλιγμένη σε κύκλο.</p>' },
+  { name: 'Πτύχωση', color: '#e07bff', lede: 'Διπλώνεις τα μέλλοντα για να πηδήξεις.',
+    see: '<p>Το φύλλο με τα κλαδιά διπλώνει ώσπου δύο μακρινά κλαδιά ακουμπούν. Ο Καθηγητής πηδά από το ένα στο άλλο χωρίς να περάσει από τα ενδιάμεσα.</p>',
+    video: '<p>Διπλώνεις την 5η διάσταση για να πας κατευθείαν σε άλλο κλαδί: σε έναν κόσμο με την ίδια αρχή αλλά άλλη ιστορία.</p>',
+    physics: '<p>Οι επιπλέον διαστάσεις της θεωρίας χορδών είναι χωρικές και τυλιγμένες σε μέγεθος κοντά στο μήκος Planck (≈ 1,6 × 10⁻³⁵ m). Δεν είναι διάδρομοι προς άλλους κόσμους.</p><p>Ταξίδι στον χρόνο: η γενική σχετικότητα έχει λύσεις με κλειστές χρονοειδείς καμπύλες (π.χ. το σύμπαν του Gödel, 1949), αλλά δεν υπάρχει γνωστός φυσικός τρόπος να φτιαχτούν.</p>' },
+  { name: 'Άπειρο', color: '#ff6fb3', lede: 'Όλες οι ιστορίες ενός σύμπαντος σε ένα σημείο.',
+    see: '<p>Όλες οι πιθανές ιστορίες από μία Μεγάλη Έκρηξη, σαν σύννεφο από νήματα. Το μοντέλο θεωρεί όλο αυτό ένα σημείο.</p>',
+    video: '<p>Πάρε όλα τα πιθανά μέλλοντα και παρελθόντα από τη δική μας αρχή και φαντάσου τα σαν ένα σημείο: ένα «άπειρο».</p>',
+    physics: '<p>Το μοντέλο κάνει σε κάθε βήμα το ίδιο τέχνασμα: θεωρεί ένα ολόκληρο σύνολο σαν ένα σημείο ενός μεγαλύτερου χώρου. Είναι ωραία εικόνα, αλλά στη φυσική οι διαστάσεις δεν προστίθενται με αυτόν τον τρόπο.</p>' },
+  { name: 'Πολλά σύμπαντα', color: '#ff8a6b', lede: 'Διαφορετικές αρχές, διαφορετικά «άπειρα».',
+    see: '<p>Κάθε σφαίρα είναι ένα ολόκληρο σύμπαν με όλες τις ιστορίες του, αλλά με άλλες αρχικές συνθήκες. Το δικό μας έχει δακτύλιο.</p>',
+    video: '<p>Η 8η διάσταση συνδέει σύμπαντα με διαφορετική αρχή, σαν κλαδιά από «άπειρα».</p>',
+    physics: '<p>Στη θεωρία χορδών υπάρχει το λεγόμενο «τοπίο»: τεράστιος αριθμός τρόπων να τυλιχτούν οι 6 επιπλέον διαστάσεις (συχνά αναφέρεται 10⁵⁰⁰). Ο καθένας δίνει άλλους νόμους σε χαμηλές ενέργειες. Είναι θεωρητική πρόβλεψη, όχι μέτρηση.</p>' },
+  { name: 'Άλλοι νόμοι', color: '#ffc35e', lede: 'Διπλώνεις ξανά, σε σύμπαν με άλλη φυσική.',
+    see: '<p>Το φύλλο των συμπάντων διπλώνει και ο Καθηγητής περνά σε σύμπαν με άλλους φυσικούς νόμους. Αυτό φαίνεται από το άλλο χρώμα και το άλλο μοτίβο.</p>',
+    video: '<p>Διπλώνεις την 8η διάσταση και πηγαίνεις σε σύμπαν όπου οι φυσικοί νόμοι είναι διαφορετικοί.</p>',
+    physics: '<p>Στη θεωρία υπερχορδών το σχήμα των 6 τυλιγμένων διαστάσεων (πολλαπλότητα Calabi–Yau) καθορίζει ποια σωματίδια και δυνάμεις υπάρχουν. Άλλο σχήμα σημαίνει άλλοι «νόμοι». Εδώ το βίντεο έρχεται πιο κοντά στη φυσική. Δες το «Ταξίδι στο πολύ μικρό».</p>' },
+  { name: 'Τα πάντα', color: '#fff3c4', lede: 'Ένα σημείο που περιέχει τα πάντα, και χορδές.',
+    see: '<p>Στο κέντρο, μια κλειστή χορδή που δονείται. Κάθε τρόπος δόνησης αντιστοιχεί σε άλλο σωματίδιο, όπως οι αρμονικές μιας χορδής κιθάρας δίνουν άλλες νότες. Γύρω της, όλα τα σύμπαντα συγκλίνουν σε ένα σημείο.</p>',
+    video: '<p>Όλα τα δυνατά σύμπαντα μαζεμένα σε ένα σημείο, και ο κύκλος ξαναρχίζει. Εκεί, λέει το μοντέλο, δονούνται οι χορδές.</p>',
+    physics: '<p>Στη θεωρία υπερχορδών ο χωροχρόνος έχει 10 διαστάσεις: <b>9 χώρου και 1 χρόνου</b>, όχι 10 «επίπεδα» όπως στο βίντεο. Μόνο με D = 10 η θεωρία είναι συνεπής κβαντικά (ακύρωση ανωμαλίας).</p><p>Οι 3 χωρικές είναι μεγάλες, οι 6 τυλιγμένες. Οι χορδές δονούνται σε όλες.</p>' },
+  { name: 'Θεωρία Μ', color: '#b3fff1', lede: 'Δέκα χώρου και ένα χρόνου: βράνες.',
+    see: '<p>Δύο βράνες (μεμβράνες). Οι ανοιχτές χορδές έχουν τα άκρα τους πάνω στη βράνη. Μια κλειστή χορδή, σαν το βαρυτόνιο, μπορεί να φύγει από τη μία στην άλλη.</p>',
+    video: '<p>Στα βίντεο των 11 διαστάσεων, η 11η είναι ο «χώρος» όπου ζουν μεμβράνες-σύμπαντα.</p>',
+    physics: '<p>Θεωρία Μ (Witten, 1995): 10 διαστάσεις χώρου και 1 χρόνου. Οι πέντε θεωρίες υπερχορδών είναι όψεις της. Περιέχει μεμβράνες (βράνες) και είναι υπόθεση που δεν έχει ελεγχθεί πειραματικά.</p>' }
+];
+
+const MODE_TEXT = {
+  elevator: { title: 'Ασανσέρ 4D', lede: 'Χωρητικότητα 8 ατόμων. Μπαίνουν 24.', color: '#e07bff',
+    see: '<p>Η καμπίνα γράφει «8 άτομα» και η πόρτα δεν ανοίγει. Για να τη δεις από μέσα, η δεξιά πλευρά λείπει από την εικόνα.</p><p>Οι επιβάτες μπαίνουν από τη διάσταση <b>W</b>: βλέπουμε την τομή τους να μικραίνει, να χάνεται και να εμφανίζεται μέσα. Κάθε επιβάτης στέκεται σε άλλο <b>στρώμα W</b>. Τα στρώματα φαίνονται σαν κουτιά που μικραίνουν προς το βάθος, και σε κάθε στρώμα χωράει μια ολόκληρη παρέα. Ο μετρητής δεξιά δείχνει πόσοι είναι μέσα.</p>',
+    video: '<p>Οι τοίχοι δείχνουν κύβους μέσα σε κύβους, όπως η εικόνα με τον Καθηγητή στο ασανσέρ. Αυτή είναι η 3D προβολή ενός υπερκύβου: ένα ασανσέρ με 4 διαστάσεις.</p>',
+    physics: '<p>Μια 4D καμπίνα 2 × 2,4 × 2 m με βάθος 2 m στο W έχει υπερόγκο <span class="formula">2 · 2,4 · 2 · 2 = 19,2 m⁴</span>. Κάθε τιμή του W είναι ένα ολόκληρο 3D αντίγραφο της καμπίνας. Αν κάθε επιβάτης πιάνει 0,3 m στο W, χωράνε περίπου <span class="formula">(2 / 0,3) × 8 ≈ 53</span> άτομα.</p><p>Είσοδος: η διαδρομή <span class="formula">w(τ) = R·sin(πτ)</span> περνά «πάνω» από τον τοίχο. Η τομή ενός 4D σώματος έχει μέγεθος <span class="formula">√(R² − w²)</span>, γι\' αυτό μικραίνει και χάνεται. Στην προοπτική προβολή τα βαθύτερα στρώματα φαίνονται μικρότερα κατά <span class="formula">d/(d − w)</span>.</p>' },
+  meadow: { title: 'Σπίτι στο λιβάδι', lede: 'Περπάτα και διάλεξε πύλη. Κάθε πύλη οδηγεί σε μια διάσταση.', color: '#8ef0c1',
+    see: '<p>Εδώ ζούμε σε <b>3 διαστάσεις χώρου και 1 χρόνου</b>. Κίνησε τον Καθηγητή με <b>W A S D</b> ή τα βελάκια (με Shift τρέχει), με κλικ στο έδαφος ή, σε κινητό, με το joystick. Σύρε για να γυρίσεις την κάμερα.</p><p>Στην πλατεία υπάρχουν 12 πύλες, μία για κάθε διάσταση 0–11. Πλησίασε μια πύλη για να δεις πού οδηγεί και πάτα <b>Ταξίδεψε</b> ή E. Κοντά στο μονοπάτι είναι οι πύλες για το Ασανσέρ 4D και το «Γίνε μικρός». Δίπλα στο σπίτι είναι η πύλη για το ταξίδι στον χρόνο.</p>',
+    video: '<p>Τα βίντεο ξεκινούν από τον κόσμο μας, τις 3 διαστάσεις του χώρου, και ανεβαίνουν σκαλί σκαλί. Κάθε πύλη της πλατείας είναι ένα σκαλί αυτής της σκάλας.</p>',
+    physics: '<p>Ότι ο χώρος έχει 3 διαστάσεις φαίνεται και από τους νόμους της φύσης. Η βαρύτητα και το φως εξασθενούν σαν <span class="formula">1/r²</span>, γιατί η επιφάνεια μιας σφαίρας μεγαλώνει σαν <span class="formula">r²</span>.</p><p>Σε 4 διαστάσεις χώρου θα εξασθενούσαν σαν <span class="formula">1/r³</span> και οι τροχιές των πλανητών δεν θα ήταν σταθερές (Ehrenfest, 1917).</p>' },
+  time: { title: 'Ταξίδι στον χρόνο', lede: 'Πίσω στο σπίτι, 40 χρόνια πριν.', color: '#ffc35e',
+    see: '<p>Ο Καθηγητής μένει στο ίδιο σημείο του χώρου και αλλάζει μόνο ο χρόνος. Τα δέντρα μικραίνουν, το σπίτι ξαναβάφεται και ο ήλιος πέφτει. Ο ρυθμιστής ορίζει πόσα χρόνια πίσω πας.</p><p>Πριν από 40 χρόνια, ο μικρός Καθηγητής παίζει μπάλα στην αυλή. Περπάτα ως εκεί για να συναντήσεις τον εαυτό σου.</p>',
+    video: '<p>Στα βίντεο, στην 5η και 6η διάσταση «διπλώνεις» τον χρόνο και πηγαίνεις από ένα σημείο του σε άλλο χωρίς να περάσεις από τα ενδιάμεσα.</p>',
+    physics: '<p><b>Στο μέλλον ταξιδεύουμε ήδη.</b> Όσο πιο γρήγορα κινείσαι, τόσο πιο αργά περνά ο χρόνος σου: <span class="formula">Δt′ = Δt·√(1 − v²/c²)</span>. Οι αστροναύτες στον ISS γερνούν περίπου 9 χιλιοστά του δευτερολέπτου λιγότερο τον χρόνο. Τα ρολόγια των δορυφόρων GPS διορθώνονται κατά περίπου 38 μs τη μέρα.</p><p><b>Στο παρελθόν</b>, η γενική σχετικότητα έχει λύσεις με κλειστές χρονοειδείς καμπύλες, όπως το σύμπαν του Gödel (1949) και οι σκουληκότρυπες των Morris και Thorne (1988). Χρειάζονται όμως «εξωτική» ύλη με αρνητική ενέργεια. Το παράδοξο του παππού λύνεται, κατά την αρχή του Novikov, αν ό,τι κάνεις στο παρελθόν είχε ήδη συμβεί. Ο Hawking υπέθεσε ότι η φύση απαγορεύει τέτοια ταξίδια.</p>' },
+  zoom: { title: 'Πολύ μικρό', lede: 'Ο Καθηγητής μικραίνει ως το μήκος Planck.', color: '#b3fff1',
+    see: '<p>Ο Καθηγητής μένει ίδιος στην οθόνη και ο κόσμος γύρω του μεγαλώνει. Αυτό σημαίνει ότι μικραίνει εκείνος. Κάθε βήμα του ρυθμιστή είναι μια δύναμη του 10.</p><p>Σε κάθε στάση, το πλαίσιο πάνω δεξιά εξηγεί ποιες διαστάσεις παίζουν ρόλο σε αυτή την κλίμακα. Η μπάρα δείχνει τις 3 του χώρου και τον χρόνο (μεγάλες), τις τυλιγμένες της θεωρίας χορδών και όσες είναι μόνο υπόθεση.</p>',
+    video: '<p>Τα βίντεο λένε ότι οι επιπλέον διαστάσεις είναι «τυλιγμένες» και δεν τις βλέπουμε. Εδώ φαίνεται πόσο μικρές είναι.</p>',
+    physics: '<p>Μήκος Planck: <span class="formula">ℓ<sub>P</sub> = √(ħG/c³) ≈ 1,616 × 10⁻³⁵ m</span>.</p><p>Το LHC ελέγχει αποστάσεις περίπου ως 10⁻¹⁹ m. Οι επιπλέον διαστάσεις της θεωρίας χορδών θεωρείται ότι είναι πολύ μικρότερες. Το σχήμα στο τέλος είναι τομή της πενταδικής Calabi–Yau <span class="formula">z₁⁵ + z₂⁵ = 1</span>, προβεβλημένη από 4D σε 3D (Hanson, 1994).</p>' }
+};
+
+// =====================================================================
+// Βασικά
+// =====================================================================
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TAU = Math.PI * 2;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+const col = hex => new THREE.Color(hex);
+
+const canvas = document.getElementById('gl');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (e) {
+  document.getElementById('loading').innerHTML = '<p style="max-width:40ch;text-align:center">Ο browser δεν υποστηρίζει WebGL. Δοκίμασε πρόσφατο Chrome, Firefox, Edge ή Safari.</p>';
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.NoToneMapping; // τη χαρτογράφηση τόνων την κάνει το postprocessing (ToneMappingEffect)
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.01, 2000);
+camera.position.set(6, 3.2, 8);
+scene.add(camera);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.32;
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 1.2;
+controls.maxDistance = 40;
+
+const U = { time: { value: 0 } };
+
+// φωτισμός
+const spaceHemi = new THREE.HemisphereLight(0x9aa8ff, 0x1a1030, 0.75); scene.add(spaceHemi);
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(4, 8, 6); scene.add(key);
+const rim = new THREE.DirectionalLight(0x59d6ff, 1.8); rim.position.set(-6, 3, -7); scene.add(rim);
+
+// =====================================================================
+// GLSL βοηθήματα
+// =====================================================================
+const NOISE = `
+float hash3(vec3 p){ p = fract(p*0.3183099 + 0.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vnoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+  return mix(mix(mix(hash3(i), hash3(i+vec3(1,0,0)), f.x), mix(hash3(i+vec3(0,1,0)), hash3(i+vec3(1,1,0)), f.x), f.y),
+             mix(mix(hash3(i+vec3(0,0,1)), hash3(i+vec3(1,0,1)), f.x), mix(hash3(i+vec3(0,1,1)), hash3(i+vec3(1,1,1)), f.x), f.y), f.z); }
+float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a*vnoise(p); p = p*2.03 + vec3(1.7, 9.2, 3.1); a *= 0.5; } return s; }
+vec3 hsv2rgb(vec3 c){ vec3 p = abs(fract(c.xxx + vec3(0.0, 2.0/3.0, 1.0/3.0))*6.0 - 3.0); return c.z*mix(vec3(1.0), clamp(p-1.0, 0.0, 1.0), c.y); }
+`;
+const VS_BASIC = `
+varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vPos;
+void main(){ vUv = uv; vPos = position;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  #ifdef USE_INSTANCING
+  mv = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  #endif
+  vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`;
+
+// λαμπερό υλικό: ροή φωτός κατά μήκος (για σωλήνες) + λάμψη άκρων
+function glowMat(hex, { intensity = 2.2, flow = 0, speed = 0.35, additive = true, opacity = 1 } = {}) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: col(hex) }, uIntensity: { value: intensity }, uTime: U.time, uOpacity: { value: opacity }, uFlow: { value: flow }, uSpeed: { value: speed } },
+    vertexShader: VS_BASIC,
+    fragmentShader: `uniform vec3 uColor; uniform float uIntensity, uTime, uOpacity, uFlow, uSpeed;
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){ float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 1.4);
+        float p = fract(vUv.x*uFlow - uTime*uSpeed);
+        float pulse = uFlow > 0.0 ? smoothstep(0.0, 0.04, p)*(1.0 - smoothstep(0.04, 0.32, p)) : 0.0;
+        vec3 c = uColor*uIntensity*(0.55 + 0.45*(1.0-f) + 1.8*pulse);
+        gl_FragColor = vec4(c, uOpacity); }`,
+    transparent: true, depthWrite: !additive, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending
+  });
+}
+// υλικό «σφαίρας-ολογράμματος» με φωτεινά άκρα
+function fresnelMat(hex, { intensity = 1.6, core = 0.08, opacity = 1, power = 2.2 } = {}) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: col(hex) }, uIntensity: { value: intensity }, uCore: { value: core }, uOpacity: { value: opacity }, uPower: { value: power } },
+    vertexShader: VS_BASIC,
+    fragmentShader: `uniform vec3 uColor; uniform float uIntensity, uCore, uOpacity, uPower; varying vec3 vN; varying vec3 vV;
+      void main(){ float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), uPower);
+        gl_FragColor = vec4(uColor*uIntensity*(uCore + f), uOpacity*clamp(uCore + f, 0.0, 1.0)); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+  });
+}
+// πλέγμα σε επίπεδο (τοπικές συντεταγμένες xy της PlaneGeometry)
+function gridMat(hex, { cell = 1, fade = 6, opacity = 0.9, fill = 0.0 } = {}) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: col(hex) }, uCell: { value: cell }, uFade: { value: fade }, uOpacity: { value: opacity }, uFill: { value: fill }, uTime: U.time },
+    vertexShader: VS_BASIC,
+    fragmentShader: `uniform vec3 uColor; uniform float uCell, uFade, uOpacity, uFill, uTime; varying vec3 vPos;
+      float gl1(vec2 p){ vec2 g = abs(fract(p - 0.5) - 0.5) / fwidth(p); return 1.0 - min(min(g.x, g.y), 1.0); }
+      void main(){ vec2 p = vPos.xy / uCell;
+        float l = gl1(p)*0.45 + gl1(p/5.0)*0.9;
+        float r = length(vPos.xy); float fade = 1.0 - smoothstep(uFade*0.45, uFade, r);
+        float a = (l + uFill) * fade * uOpacity;
+        gl_FragColor = vec4(uColor*(l*1.6 + uFill*0.6), a); }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+  });
+}
+
+function tube(points, radius, mat, { closed = false, segs = 64, radial = 8 } = {}) {
+  const curve = new THREE.CatmullRomCurve3(points, closed);
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, segs, radius, radial, closed), mat);
+}
+
+// ετικέτες κειμένου ως sprites
+// ετικέτες ως HTML πάνω στη σκηνή: καθαρό κείμενο, χωρίς θόλωμα από το bloom
+function makeLabel(text, { color = '#eeeaff', size = 0.35, weight = 600, html = false, cls = '' } = {}) {
+  const el = document.createElement('div');
+  el.className = 'lbl ' + cls;
+  if (html) el.innerHTML = text; else el.textContent = text;
+  el.style.color = color; el.style.fontWeight = weight;
+  el.style.fontSize = Math.round(10 + size * 24) + 'px';
+  const o = new CSS2DObject(el); o.center.set(0.5, 0.5);
+  return o;
+}
+function haloSprite(hex, size = 1) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(.2, 'rgba(255,255,255,.55)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: col(hex), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sp.scale.setScalar(size);
+  return sp;
+}
+
+// =====================================================================
+// Ο Καθηγητής (σχηματική φιγούρα)
+// =====================================================================
+// Επιλογές χαρακτήρα (αποθηκεύονται στον browser)
+const CHAR_DEFAULT = { build: 'avg', hair: 'short', beard: 'none', glasses: true, shirt: '#232b52' };
+const CHAR = (() => { try { return { ...CHAR_DEFAULT, ...JSON.parse(localStorage.getItem('dims-character') || '{}') }; } catch (e) { return { ...CHAR_DEFAULT }; } })();
+const BUILD = { slim: 0, avg: 0.45, big: 1 };
+const MAIN_PROFS = [];
+function makeProfessor(o = {}) {
+  const prof = { group: new THREE.Group(), mats: [], limbs: {}, body: null, headG: null, shadowOn: false, holoArgs: [0, '#59d6ff'], main: !!o.main, base: o };
+  const geos = [];
+  prof.build = (opt) => {
+    const B = BUILD[opt.build] ?? 0.45;
+    const body = new THREE.Group(); prof.body = body; prof.group.add(body);
+    const mats = []; prof.mats = mats; const limbs = {}; prof.limbs = limbs;
+    const M = (c, r = .6, m = .02, extra = {}) => { const mm = new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, ...extra }); mats.push(mm); return mm; };
+    const F = (c) => { const mm = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.82, sheen: 0.6, sheenRoughness: 0.6, sheenColor: new THREE.Color(0xffffff) }); mats.push(mm); return mm; };
+    const skin = M(opt.skin, .5), scalp = M(opt.skin, opt.hair === 'bald' ? 0.32 : 0.5), shirt = F(opt.shirt), jeans = F(opt.jeans),
+      shoe = M(0x1b1b22, .45, .1), hair = M(opt.hairColor, .9), beardM = M(opt.beardColor, .95), dark = M(0x101014, .25, .7),
+      eyeW = M(0xf4f4f0, .3), pupil = M(0x1a1410, .2), lip = M(0xa8655a, .6), bag = M(0x2a2a33, .55), collarM = F(opt.collar),
+      stubbleM = M(new THREE.Color(opt.beardColor).lerp(new THREE.Color(opt.skin), 0.45), 0.98), browM = M(new THREE.Color(opt.hairColor).lerp(new THREE.Color(opt.skin), 0.25), 0.9);
+    const mesh = (geo, mat, parent, x = 0, y = 0, z = 0) => { geos.push(geo); const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+    // πόδια με γόνατα
+    for (const side of [-1, 1]) {
+      const hip = new THREE.Group(); hip.position.set((0.1 + 0.045 * B) * side, 0.92, 0); body.add(hip);
+      mesh(new THREE.CapsuleGeometry(0.085 + 0.04 * B, 0.34, 8, 16), jeans, hip, 0, -0.21, 0);
+      const knee = new THREE.Group(); knee.position.y = -0.44; hip.add(knee);
+      mesh(new THREE.CapsuleGeometry(0.068 + 0.024 * B, 0.33, 8, 16), jeans, knee, 0, -0.2, 0);
+      const sh = mesh(new THREE.CapsuleGeometry(0.058, 0.15, 6, 12), shoe, knee, 0, -0.43, 0.05); sh.rotation.x = Math.PI / 2; sh.scale.set(1.15, 1, 0.72);
+      limbs['hip' + side] = hip; limbs['knee' + side] = knee;
+    }
+    // κορμός (περιστροφή προφίλ) με κοιλιά ανάλογη του σωματότυπου
+    const prof2D = [[0.0, 0.84], [0.165 + 0.05 * B, 0.86], [0.19 + 0.075 * B, 0.95], [0.2 + 0.13 * B, 1.07], [0.2 + 0.11 * B, 1.2], [0.215 + 0.06 * B, 1.34], [0.2 + 0.035 * B, 1.45], [0.14 + 0.02 * B, 1.52], [0.07 + 0.02 * B, 1.555], [0.0, 1.56]]
+      .map(([r, y]) => new THREE.Vector2(r, y));
+    const torso = mesh(new THREE.LatheGeometry(prof2D, 40), shirt, body); torso.scale.set(1.05 + 0.1 * B, 1, 0.74 + 0.1 * B);
+    if (B > 0.6) { const belly = mesh(new THREE.SphereGeometry(0.16 * B + 0.03, 28, 20), shirt, body, 0, 1.07, 0.04 + 0.05 * B); belly.scale.set(1.25, 1.05, 0.85); }
+    mesh(new THREE.TorusGeometry(0.075 + 0.018 * B, 0.017, 8, 28), collarM, body, 0, 1.545, 0.0).rotation.x = Math.PI / 2;
+    // χέρια με αγκώνες, κοντά μανίκια
+    for (const side of [-1, 1]) {
+      const shoulder = new THREE.Group(); shoulder.position.set((0.235 + 0.085 * B) * side, 1.44, 0); body.add(shoulder);
+      mesh(new THREE.SphereGeometry(0.066 + 0.026 * B, 18, 14), shirt, shoulder, -0.012 * side, 0, 0);
+      mesh(new THREE.CylinderGeometry(0.073 + 0.03 * B, 0.068 + 0.026 * B, 0.15, 16), shirt, shoulder, 0, -0.08, 0);
+      mesh(new THREE.CapsuleGeometry(0.052 + 0.022 * B, 0.2, 6, 14), skin, shoulder, 0, -0.17, 0);
+      const elbow = new THREE.Group(); elbow.position.y = -0.31; shoulder.add(elbow);
+      mesh(new THREE.CapsuleGeometry(0.045 + 0.016 * B, 0.21, 6, 14), skin, elbow, 0, -0.13, 0);
+      const hand = mesh(new THREE.SphereGeometry(0.052, 16, 12), skin, elbow, 0, -0.29, 0.005); hand.scale.set(0.78, 1.15, 0.55);
+      limbs['sh' + side] = shoulder; limbs['el' + side] = elbow;
+    }
+    if (opt.satchel) { const bg2 = mesh(new THREE.BoxGeometry(0.11, 0.32, 0.34), bag, limbs['el1'], 0.02, -0.45, 0); bg2.rotation.x = 0.05; }
+    // λαιμός και κεφάλι
+    mesh(new THREE.CylinderGeometry(0.052 + 0.022 * B, 0.062 + 0.028 * B, 0.1, 18), skin, body, 0, 1.6, 0);
+    const headG = new THREE.Group(); headG.position.y = 1.735; headG.scale.setScalar(opt.head || 1); body.add(headG); prof.headG = headG;
+    const head = mesh(new THREE.SphereGeometry(0.115, 40, 30), scalp, headG); head.scale.set(0.93 + 0.06 * B, 1.08, 1.0);
+    if (B > 0.5) mesh(new THREE.SphereGeometry(0.085, 24, 16), skin, headG, 0, -0.06, 0.02).scale.set(1.25, 0.8, 1.05);
+    for (const sx of [-1, 1]) {
+      mesh(new THREE.SphereGeometry(0.028, 14, 10), skin, headG, sx * (0.107 + 0.006 * B), 0.0, -0.005).scale.set(0.45, 1, 0.75);
+      mesh(new THREE.SphereGeometry(0.0155, 14, 10), eyeW, headG, sx * 0.039, 0.022, 0.096);
+      mesh(new THREE.SphereGeometry(0.0085, 10, 8), pupil, headG, sx * 0.039, 0.022, 0.109);
+      const brow = mesh(new THREE.BoxGeometry(0.032, 0.0055, 0.008), browM, headG, sx * 0.041, 0.056, 0.104); brow.rotation.z = -sx * 0.14;
+    }
+    const nose = mesh(new THREE.CapsuleGeometry(0.016, 0.03, 6, 10), skin, headG, 0, -0.004, 0.112); nose.rotation.x = 0.35;
+    const mouth = mesh(new THREE.TorusGeometry(0.021, 0.0045, 6, 16, Math.PI), lip, headG, 0, -0.047, 0.1); mouth.rotation.z = Math.PI;
+    // μαλλιά: κοντά ή φαλάκρα με στεφάνι στα πλάγια
+    if (opt.hair === 'short') { const cap = mesh(new THREE.SphereGeometry(0.121, 36, 18, 0, TAU, 0, Math.PI * 0.46), hair, headG, 0, 0.006, -0.006); cap.scale.set(0.95 + 0.06 * B, 1.07, 1.03); cap.rotation.x = -0.28; }
+    else { const fr = new THREE.Group(); fr.position.set(0, -0.008, -0.004); fr.rotation.y = -0.875 * Math.PI; fr.scale.set(0.95 + 0.06 * B, 1, 1.02); headG.add(fr); // στεφάνι μαλλιών πίσω και στα πλάγια
+      const ring = mesh(new THREE.TorusGeometry(0.106, 0.019, 10, 40, Math.PI * 1.25), hair, fr); ring.rotation.x = Math.PI / 2; ring.scale.z = 1.3; }
+    // γένια
+    if (opt.beard !== 'none') {
+      const full = opt.beard === 'full', r = full ? 0.123 : 0.1185;
+      const bd = mesh(new THREE.SphereGeometry(r, 36, 20, 0, Math.PI, Math.PI * (full ? 0.6 : 0.64), Math.PI * (full ? 0.36 : 0.28)), full ? beardM : stubbleM, headG, 0, full ? -0.006 : 0, 0.004);
+      bd.scale.set(0.95 + 0.06 * B, 1.09, 1.03);
+      if (full) { const ms = mesh(new THREE.CapsuleGeometry(0.009, 0.045, 4, 8), beardM, headG, 0, -0.03, 0.108); ms.rotation.z = Math.PI / 2; }
+      for (const sx of [-1, 1]) { const sb = mesh(new THREE.BoxGeometry(0.01, 0.055, 0.035), full ? beardM : stubbleM, headG, sx * 0.105, -0.025, 0.0); sb.rotation.y = sx * 0.2; }
+    }
+    if (opt.glasses) {
+      for (const sx of [-1, 1]) { const l = mesh(new THREE.TorusGeometry(0.025, 0.0028, 8, 28), dark, headG, sx * 0.039, 0.022, 0.116); l.scale.y = 0.85;
+        const arm = mesh(new THREE.BoxGeometry(0.004, 0.004, 0.1), dark, headG, sx * 0.064, 0.024, 0.07); arm.rotation.y = sx * 0.08; }
+      mesh(new THREE.BoxGeometry(0.026, 0.004, 0.004), dark, headG, 0, 0.026, 0.118);
+    }
+    prof.opts = opt;
+  };
+  prof.dispose = () => { if (prof.body) { prof.group.remove(prof.body); prof.body = null; } geos.forEach(g => g.dispose()); geos.length = 0; prof.mats.forEach(m => m.dispose()); };
+  prof.rebuild = (o2) => { prof.dispose(); prof.build(o2); if (prof.shadowOn) prof.shadows(true); prof.holo(...prof.holoArgs); };
+  prof.shadows = (on = true) => { prof.shadowOn = on; prof.group.traverse(m => { if (m.isMesh) { m.castShadow = on; m.receiveShadow = on; } }); };
+  prof.walk = (t, amount = 1) => {
+    const L = prof.limbs, s = Math.sin(t * 6.2) * 0.42 * amount;
+    if (!L['hip1']) return;
+    L['hip-1'].rotation.x = s; L['hip1'].rotation.x = -s;
+    L['knee-1'].rotation.x = Math.max(0, -Math.sin(t * 6.2 - 0.6)) * 0.75 * amount; L['knee1'].rotation.x = Math.max(0, Math.sin(t * 6.2 - 0.6)) * 0.75 * amount;
+    L['sh-1'].rotation.x = -s * 0.8; L['sh1'].rotation.x = s * 0.55;
+    L['el-1'].rotation.x = -0.25 - Math.max(0, s) * 0.5 * amount; L['el1'].rotation.x = -0.2 - Math.max(0, -s) * 0.4 * amount;
+    L['sh-1'].rotation.z = -0.06; L['sh1'].rotation.z = 0.06;
+    prof.body.position.y = Math.abs(Math.cos(t * 6.2)) * 0.03 * amount;
+    prof.body.rotation.y = Math.sin(t * 6.2) * 0.05 * amount;
+  };
+  prof.holo = (amount, hex = '#59d6ff') => {
+    prof.holoArgs = [amount, hex];
+    const c = hex && hex.isColor ? hex : col(hex);
+    for (const m of prof.mats) { m.emissive.copy(c); m.emissiveIntensity = amount * 1.6; }
+  };
+  const optsFor = (oo) => ({ skin: 0xd6a68c, jeans: 0x3f6296, hairColor: 0x3a3a40, beardColor: 0x3d3833, collar: 0xe8e8f0, satchel: true, head: 1, ...(oo.main ? { ...CHAR, shirt: CHAR.shirt } : { build: 'avg', hair: 'short', beard: 'none', glasses: true, shirt: 0x232b52 }), ...oo });
+  prof.optsFor = optsFor;
+  prof.build(optsFor(o));
+  if (prof.main) MAIN_PROFS.push(prof);
+  return prof;
+}
+// ενημέρωση όλων των «κύριων» Καθηγητών όταν αλλάζουν οι επιλογές χαρακτήρα
+function applyCharacter() {
+  try { localStorage.setItem('dims-character', JSON.stringify(CHAR)); } catch (e) {}
+  for (const p of MAIN_PROFS) {
+    p.rebuild(p.optsFor(p.base));
+    let w = p.group; while (w.parent && w.parent !== scene && w.parent !== camera) w = w.parent;
+    collectMats(w);
+  }
+}
+
+// =====================================================================
+// Υπόβαθρο: νεφέλωμα + αστέρια (GPU)
+// =====================================================================
+const bg = new THREE.Mesh(new THREE.SphereGeometry(600, 48, 32), new THREE.ShaderMaterial({
+  uniforms: { uTime: U.time, uTint: { value: col('#59d6ff') } },
+  vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_Position = p.xyww; }`,
+  fragmentShader: NOISE + `uniform float uTime; uniform vec3 uTint; varying vec3 vDir;
+    void main(){ vec3 d = normalize(vDir);
+      float n = fbm(d*2.4 + vec3(0.0, 0.0, uTime*0.006)); float n2 = fbm(d*5.0 - vec3(uTime*0.004));
+      float band = exp(-pow(d.y*2.2 - 0.25*sin(d.x*3.0), 2.0));
+      vec3 c = vec3(0.010, 0.008, 0.030);
+      c += vec3(0.20, 0.05, 0.34)*smoothstep(0.42, 0.85, n)*(0.5 + band);
+      c += vec3(0.02, 0.15, 0.26)*smoothstep(0.5, 0.92, n2)*(0.6 + band);
+      c += uTint*0.07*smoothstep(0.55, 0.95, n*n2*2.0);
+      gl_FragColor = vec4(c, 1.0); }`,
+  side: THREE.BackSide, depthWrite: false
+}));
+bg.frustumCulled = false; scene.add(bg);
+
+const stars = (() => {
+  const N = 4200, pos = new Float32Array(N * 3), size = new Float32Array(N), ph = new Float32Array(N), r = rng(7);
+  for (let i = 0; i < N; i++) {
+    const u = r() * 2 - 1, th = r() * TAU, s = Math.sqrt(1 - u * u), R = 160 + r() * 300;
+    pos.set([R * s * Math.cos(th), R * u, R * s * Math.sin(th)], i * 3);
+    size[i] = Math.pow(r(), 6) * 7 + 1.0; ph[i] = r() * TAU;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aPh', new THREE.BufferAttribute(ph, 1));
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uPR: { value: renderer.getPixelRatio() }, uOpacity: { value: 1 } },
+    vertexShader: `attribute float aSize, aPh; uniform float uTime, uPR; varying float vA;
+      void main(){ vec4 mv = modelViewMatrix*vec4(position,1.0); gl_Position = projectionMatrix*mv;
+        vA = 0.6 + 0.4*sin(uTime*1.3 + aPh*7.0); gl_PointSize = aSize*uPR; }`,
+    fragmentShader: `uniform float uOpacity; varying float vA; void main(){ vec2 q = gl_PointCoord - 0.5; float d = length(q); float a = smoothstep(0.5, 0.0, d)*uOpacity;
+      gl_FragColor = vec4(vec3(1.0, 0.95, 1.0)*a*vA*1.4, a); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  const p = new THREE.Points(geo, m); p.frustumCulled = false; scene.add(p); return p;
+})();
+
+// =====================================================================
+// Σύστημα κόσμων και ομαλής εμφάνισης
+// =====================================================================
+function collectMats(group) {
+  const mats = new Set();
+  group.traverse(o => { const m = o.material; if (!m) return; (Array.isArray(m) ? m : [m]).forEach(x => mats.add(x)); });
+  for (const m of mats) {
+    if (m.uniforms && m.uniforms.uOpacity) m.userData.base = m.uniforms.uOpacity.value;
+    else { m.userData.base = m.opacity; m.userData.wasTransparent = m.transparent; }
+  }
+  group.userData.mats = [...mats];
+  const labels = []; group.traverse(o => { if (o.isCSS2DObject) labels.push(o); });
+  group.userData.labels = labels;
+}
+function setFade(group, a) {
+  group.visible = a > 0.003;
+  for (const l of group.userData.labels || []) l.element.style.opacity = a.toFixed(3);
+  for (const m of group.userData.mats) {
+    if (m.uniforms && m.uniforms.uOpacity) m.uniforms.uOpacity.value = m.userData.base * a;
+    else { m.opacity = m.userData.base * a; m.transparent = m.userData.wasTransparent || a < 0.999; m.depthWrite = !m.transparent || m.userData.wasTransparent === false && a > 0.98; }
+  }
+}
+function makeWorld(focal, camPos, build) {
+  const outer = new THREE.Group(), inner = new THREE.Group();
+  outer.position.copy(focal); inner.position.copy(focal).multiplyScalar(-1); outer.add(inner);
+  const w = { group: outer, root: inner, focal: focal.clone(), cam: camPos.clone(), update: () => {} };
+  build(w);
+  scene.add(outer); collectMats(outer); setFade(outer, 0);
+  return w;
+}
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+// σε στενές (κάθετες) οθόνες η κάμερα απομακρύνεται, ώστε να χωράει το ίδιο πλάτος σκηνής
+const camAdj = (pos, tgt) => { const f = clamp(1.05 / camera.aspect, 1, 2.1); return tgt.clone().add(pos.clone().sub(tgt).multiplyScalar(f)); };
+
+// ---------- 0: σημείο ----------
+const worlds = [];
+worlds[0] = makeWorld(V(0, 0, 0), V(0, 0.6, 4.2), w => {
+  const c = DIMS[0].color;
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 24, 16), glowMat(c, { intensity: 5, additive: false }));
+  w.root.add(dot, haloSprite(c, 0.9));
+  const rings = [];
+  for (let i = 0; i < 4; i++) {
+    const r = new THREE.Mesh(new THREE.RingGeometry(0.98, 1, 96), glowMat(c, { intensity: 1.6, opacity: 0.6 }));
+    r.material.side = THREE.DoubleSide; w.root.add(r); rings.push(r);
+  }
+  const lab = makeLabel('ο Καθηγητής = ένα σημείο', { color: c, size: 0.17 }); lab.position.set(0, -0.75, 0); w.root.add(lab);
+  w.update = (t) => {
+    rings.forEach((r, i) => { const k = (t * 0.25 + i / 4) % 1; r.scale.setScalar(0.15 + k * 2.4); r.material.uniforms.uOpacity.value = (1 - k) * 0.55 * w.fade; r.lookAt(camera.position); });
+    dot.scale.setScalar(1 + 0.15 * Math.sin(t * 3));
+  };
+});
+
+// ---------- 1: γραμμή ----------
+worlds[1] = makeWorld(V(0, 0, 0), V(0, 1.1, 5.2), w => {
+  const c = DIMS[1].color;
+  const line = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 18, 8), glowMat(c, { intensity: 2.2, flow: 6, speed: 0.15 }));
+  line.rotation.z = Math.PI / 2; w.root.add(line);
+  const beings = [];
+  const specs = [[-3.6, '#8ef0c1', 0.5], [-1.2, c, 0.62], [1.4, '#ff8a6b', 0.45], [3.5, '#a77bff', 0.55]];
+  specs.forEach(([x, hex, len], i) => {
+    const b = new THREE.Group();
+    const seg = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, len, 6, 12), glowMat(hex, { intensity: i === 1 ? 3 : 1.6, additive: false }));
+    seg.rotation.z = Math.PI / 2; b.add(seg);
+    const headM = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 12), glowMat('#ffffff', { intensity: 4, additive: false })); headM.position.x = len / 2 + 0.05; b.add(headM);
+    b.position.x = x; w.root.add(b); beings.push({ b, x0: x, len });
+  });
+  const lab = makeLabel('ο Καθηγητής', { color: c, size: 0.2 }); lab.position.set(0, 0.32, 0); beings[1].b.add(lab);
+  w.update = (t) => {
+    beings.forEach((o, i) => {
+      const room = 0.65; const x = o.x0 + Math.sin(t * (0.7 + i * 0.13) + i) * room;
+      o.b.position.x = x; o.b.children[1].position.x = (Math.cos(t * (0.7 + i * 0.13) + i) >= 0 ? 1 : -1) * (o.len / 2 + 0.05);
+    });
+  };
+});
+
+// ---------- 2: επίπεδο (Επιπεδοχώρος) ----------
+worlds[2] = makeWorld(V(0, 1, 0), V(3.2, 2.3, 6.6), w => {
+  const c = DIMS[2].color;
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(12, 5.4), gridMat(c, { cell: 0.5, fade: 7, opacity: 0.55, fill: 0.05 }));
+  plane.position.y = 1.2; w.root.add(plane);
+  const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(12, 5.4)), new THREE.LineBasicMaterial({ color: col(c), transparent: true, opacity: 0.6 }));
+  frame.position.y = 1.2; w.root.add(frame);
+  const flat = new THREE.Group(); flat.scale.set(1, 1, 0.025);
+  const prof = makeProfessor({ main: true }); prof.group.rotation.y = Math.PI / 2; prof.holo(0.35, c); flat.add(prof.group);
+  flat.position.y = -1.5; w.root.add(flat);
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), fresnelMat('#ffd37a', { intensity: 1.5, core: 0.05 }));
+  w.root.add(sphere);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.965, 1, 96), glowMat('#ffd37a', { intensity: 4.5, additive: false })); ring.material.side = THREE.DoubleSide;
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 96), glowMat('#ffd37a', { intensity: 0.7, opacity: 0.35 })); disc.material.side = THREE.DoubleSide;
+  w.root.add(ring, disc);
+  const lab = makeLabel('αυτό βλέπουν οι επίπεδοι: ένας κύκλος', { color: '#ffd37a', size: 0.2 }); lab.position.set(2.2, 2.95, 0.05); w.root.add(lab);
+  w.update = (t) => {
+    prof.walk(t, 1); flat.position.x = -4 + ((t * 0.55) % 8); prof.group.position.y = 0;
+    const R = 0.9, z = 2.4 * Math.sin(t * 0.55); sphere.scale.setScalar(R); sphere.position.set(2.2, 1.45, z);
+    const r = Math.sqrt(Math.max(0, R * R - z * z));
+    ring.visible = disc.visible = r > 0.01; ring.scale.setScalar(Math.max(r, 0.001)); disc.scale.setScalar(Math.max(r, 0.001));
+    ring.position.set(2.2, 1.45, 0.002); disc.position.set(2.2, 1.45, 0);
+  };
+  w.prof = prof;
+});
+
+// ---------- 3: χώρος ----------
+worlds[3] = makeWorld(V(0, 1, 0), V(5.4, 3.0, 6.8), w => {
+  const c = DIMS[3].color;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), gridMat(c, { cell: 1, fade: 13, opacity: 0.55 }));
+  floor.rotation.x = -Math.PI / 2; w.root.add(floor);
+  const axes = [['x', V(1, 0, 0), '#ff6fb3'], ['y', V(0, 1, 0), '#8ef0c1'], ['z', V(0, 0, 1), '#59d6ff']];
+  for (const [name, dir, hex] of axes) {
+    const len = 3.2, a = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, len, 10), glowMat(hex, { intensity: 2.4, additive: false })); shaft.position.y = len / 2; a.add(shaft);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 16), glowMat(hex, { intensity: 3, additive: false })); cone.position.y = len + 0.1; a.add(cone);
+    const lab = makeLabel(name, { color: hex, size: 0.42 }); lab.position.y = len + 0.45; a.add(lab);
+    a.quaternion.setFromUnitVectors(V(0, 1, 0), dir); a.position.set(-3.2, 0.01, -2.4); w.root.add(a);
+  }
+  const cubes = [];
+  [[2.6, 1.4, -2.2, 0.8], [-2.4, 2.2, 1.6, 0.6], [3.4, 2.8, 1.8, 0.45]].forEach(([x, y, z, s], i) => {
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(s, s, s)), new THREE.LineBasicMaterial({ color: col(i ? '#a77bff' : c), transparent: true, opacity: 0.9 }));
+    const f = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), fresnelMat(i ? '#a77bff' : c, { intensity: 0.8, core: 0.02 }));
+    const g = new THREE.Group(); g.add(e, f); g.position.set(x, y, z); w.root.add(g); cubes.push(g);
+  });
+  const prof = makeProfessor({ main: true }); w.root.add(prof.group); w.prof = prof;
+  w.update = (t) => {
+    const a = t * 0.32, R = 2.2;
+    prof.group.position.set(Math.cos(a) * R, 0, Math.sin(a) * R); prof.group.rotation.y = -a + Math.PI; prof.walk(t, 1);
+    cubes.forEach((g, i) => { g.rotation.x = t * 0.2 * (i + 1); g.rotation.y = t * 0.15 * (i + 2); });
+  };
+});
+
+// ---------- 4: χρόνος (κοσμική γραμμή = έλικας) ----------
+worlds[4] = makeWorld(V(0, -1.2, 0), V(6.4, 2.6, 7.4), w => {
+  const c = DIMS[4].color;
+  const now = new THREE.Mesh(new THREE.CircleGeometry(4.2, 96), gridMat(c, { cell: 0.6, fade: 4.4, opacity: 0.6, fill: 0.08 }));
+  now.rotation.x = -Math.PI / 2; w.root.add(now);
+  const nowLab = makeLabel('τώρα', { color: c, size: 0.32 }); nowLab.position.set(4.2, 0.4, 0); w.root.add(nowLab);
+  const prof = makeProfessor({ main: true }); w.root.add(prof.group); w.prof = prof;
+  // φαντάσματα: συγχωνευμένο απλό σώμα, με χρώμα ανά στιγμή
+  const ghostGeo = mergeGeometries([
+    new THREE.CapsuleGeometry(0.26, 0.95, 6, 14).translate(0, 0.95, 0),
+    new THREE.SphereGeometry(0.15, 16, 12).translate(0, 1.8, 0)
+  ]);
+  const N = 44, R = 2.3, dy = 0.21, step = 0.22;
+  const ghosts = new THREE.InstancedMesh(ghostGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending }), N);
+  const helix = new THREE.Group(); w.root.add(helix); helix.add(ghosts);
+  const ramp = ['#6f8bff', '#a77bff', '#e07bff', '#ff6fb3', '#ff8a6b'];
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pts = [];
+  for (let k = 1; k <= N; k++) {
+    const a = -k * step, y = -k * dy;
+    q.setFromAxisAngle(V(0, 1, 0), -a + Math.PI);
+    m4.compose(V(Math.cos(a) * R, y, Math.sin(a) * R), q, V(1, 1, 1));
+    ghosts.setMatrixAt(k - 1, m4);
+    const tt = (k - 1) / (N - 1), idx = Math.min(ramp.length - 2, Math.floor(tt * (ramp.length - 1)));
+    ghosts.setColorAt(k - 1, col(ramp[idx]).lerp(col(ramp[idx + 1]), tt * (ramp.length - 1) - idx));
+  }
+  for (let k = 0; k <= N * 4; k++) { const a = -k * step / 4; pts.push(V(Math.cos(a) * R, 1.8 - k * dy / 4, Math.sin(a) * R)); }
+  helix.add(tube(pts, 0.03, glowMat('#e07bff', { intensity: 2.6, flow: 10, speed: -0.25 }), { segs: 600 }));
+  const tAxis = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 10, 8), glowMat('#ffffff', { intensity: 1.4, additive: false })); tAxis.position.y = -4.6; w.root.add(tAxis);
+  const tl = makeLabel('χρόνος: προς τα πάνω = πιο πρόσφατα', { color: '#eeeaff', size: 0.24 }); tl.position.set(0, -9.3, 0); w.root.add(tl);
+  w.update = (t) => {
+    const a = t * 0.38 * (1 / step) * step; // γωνία παρόντος
+    prof.group.position.set(Math.cos(a) * R, 0, Math.sin(a) * R); prof.group.rotation.y = -a + Math.PI; prof.walk(t * 1.1, 1);
+    helix.rotation.y = -a;
+  };
+});
+
+// ---------- 5: διακλαδώσεις ----------
+function buildTree(seed, depth, origin, dir, len, spread, out, parent = null, path = []) {
+  const r = rng(seed);
+  const end = origin.clone().add(dir.clone().multiplyScalar(len));
+  const mid = origin.clone().lerp(end, 0.5).add(V((r() - .5) * .3, (r() - .5) * .25, (r() - .5) * .3));
+  const node = { pts: [origin.clone(), mid, end], depth, children: [], path: [...path] };
+  out.push(node);
+  if (depth > 0) {
+    for (const s of [-1, 1]) {
+      const d2 = dir.clone().applyAxisAngle(V(0, 1, 0), s * spread * (0.8 + r() * 0.4)); d2.y += (r() - .5) * 0.25; d2.normalize();
+      node.children.push(buildTree(seed * 31 + (s > 0 ? 7 : 3), depth - 1, end, d2, len * 0.78, spread * 0.82, out, node, [...path, s]));
+    }
+  }
+  return node;
+}
+worlds[5] = makeWorld(V(1.5, 0.6, 0), V(-2.2, 4.6, 7.4), w => {
+  const c = DIMS[5].color;
+  const nodes = []; const root = buildTree(5, 5, V(0, 0, 0), V(1, 0, 0), 1.7, 0.55, nodes);
+  const past = tube([V(-6, 0, 0), V(-3, 0.05, 0.1), V(0, 0, 0)], 0.045, glowMat('#6f8bff', { intensity: 2.2, flow: 3, speed: 0.3 }));
+  w.root.add(past);
+  const chosen = [1, -1, 1, 1, -1, 1];
+  let n = root; const chosenNodes = [root];
+  for (const s of chosen) { if (!n.children.length) break; n = n.children[s > 0 ? 1 : 0]; chosenNodes.push(n); }
+  for (const nd of nodes) {
+    const isChosen = chosenNodes.includes(nd);
+    w.root.add(tube(nd.pts, isChosen ? 0.04 : 0.018, glowMat(isChosen ? '#ffd37a' : c, { intensity: isChosen ? 3 : 1.3, flow: 2, speed: 0.4, opacity: isChosen ? 1 : 0.75 }), { segs: 24, radial: 6 }));
+    if (!nd.children.length) { const h = haloSprite(c, 0.35); h.position.copy(nd.pts[2]); w.root.add(h); }
+  }
+  const path = new THREE.CatmullRomCurve3(chosenNodes.flatMap((nd, i) => i ? nd.pts.slice(1) : nd.pts));
+  const prof = makeProfessor({ main: true }); prof.group.scale.setScalar(0.32); prof.holo(0.25, '#ffd37a'); w.root.add(prof.group); w.prof = prof;
+  const lab = makeLabel('πιθανά μέλλοντα', { color: c, size: 0.3 }); lab.position.set(6.2, 1.4, 0); w.root.add(lab);
+  const lab2 = makeLabel('παρελθόν', { color: '#6f8bff', size: 0.3 }); lab2.position.set(-4.2, 0.55, 0); w.root.add(lab2);
+  w.update = (t) => {
+    const u = (t * 0.06) % 1, p = path.getPointAt(u), p2 = path.getPointAt(Math.min(1, u + 0.01));
+    prof.group.position.copy(p); prof.group.lookAt(p2.x, p.y, p2.z); prof.walk(t * 1.3, 1);
+  };
+});
+
+// ---------- 6 & 9: πτύχωση φύλλου ----------
+function makeFoldSheet(w, hex, { size = 4.2 } = {}) {
+  const left = new THREE.Group(), pivot = new THREE.Group(), right = new THREE.Group();
+  const sheetMat = () => gridMat(hex, { cell: 0.5, fade: 9, opacity: 0.32, fill: 0.06 });
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 1.6), sheetMat()); pl.rotation.x = -Math.PI / 2; pl.position.x = -size / 2; left.add(pl);
+  const pr = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 1.6), sheetMat()); pr.rotation.x = -Math.PI / 2; pr.position.x = size / 2; right.add(pr);
+  pivot.add(right); w.root.add(left, pivot);
+  return { left, right, pivot };
+}
+worlds[6] = makeWorld(V(0, 1.2, 0), V(5.6, 5.2, 7.2), w => {
+  const c = DIMS[6].color; const S = makeFoldSheet(w, c);
+  const trunk = tube([V(0, 0.01, -3.2), V(0.02, 0.01, -1.6), V(0, 0.01, -0.6)], 0.04, glowMat('#6f8bff', { intensity: 2.4, flow: 3 }));
+  S.left.add(trunk);
+  const branch = (side, parent) => {
+    const pts = [V(0, 0.01, -0.6), V(0.8 * side, 0.01, 0.3), V(1.7 * side, 0.01, 1.1), V(2.6 * side, 0.01, 1.9), V(3.1 * side, 0.01, 2.8)];
+    parent.add(tube(pts, 0.035, glowMat(side < 0 ? '#ffd37a' : c, { intensity: 2.6, flow: 3 })));
+    const sub = [V(1.7 * side, 0.01, 1.1), V(2.4 * side, 0.01, 0.6), V(3.4 * side, 0.01, 0.1)];
+    parent.add(tube(sub, 0.02, glowMat(c, { intensity: 1.3, flow: 2, opacity: 0.7 })));
+    const h = haloSprite(side < 0 ? '#ffd37a' : c, 0.55); h.position.set(3.1 * side, 0.02, 2.8); parent.add(h);
+  };
+  branch(-1, S.left); branch(1, S.right);
+  const arc = tube([V(0, 0, 0), V(0, 0.5, 0), V(0, 1, 0)], 0.02, glowMat('#ffffff', { intensity: 3, flow: 2, speed: 1.2 }));
+  w.root.add(arc);
+  const prof = makeProfessor({ main: true }); prof.group.scale.setScalar(0.34); prof.holo(0.3, '#ffd37a'); w.root.add(prof.group); w.prof = prof;
+  const lab = makeLabel('δύο μακρινά μέλλοντα ακουμπούν', { color: c, size: 0.26 }); lab.position.set(0, 3.6, 2.8); w.root.add(lab);
+  const A = V(-3.1, 0.02, 2.8), tmp = new THREE.Vector3();
+  w.update = (t) => {
+    const T = (t % 10) / 10; // κύκλος 10 s
+    const fold = smooth(0.12, 0.38, T) * (1 - smooth(0.68, 0.9, T));
+    const theta = fold * Math.PI * 0.94; S.pivot.rotation.z = theta;
+    const B = V(3.1, 0.02, 2.8).applyAxisAngle(V(0, 0, 1), theta); // άκρη του δεξιού κλαδιού μετά το δίπλωμα
+    const jump = smooth(0.42, 0.58, T);
+    let p;
+    if (T < 0.42) p = A.clone();
+    else if (T < 0.58) { const mid = A.clone().lerp(B, 0.5).add(V(0, 0.9, 0)); const u = jump; p = A.clone().multiplyScalar((1 - u) * (1 - u)).add(mid.clone().multiplyScalar(2 * u * (1 - u))).add(B.clone().multiplyScalar(u * u)); }
+    else p = V(3.1, 0.02, 2.8).applyAxisAngle(V(0, 0, 1), theta);
+    if (T > 0.95) p = A.clone();
+    prof.group.position.copy(p);
+    prof.group.up.set(0, 1, 0);
+    if (T >= 0.58 && T <= 0.95) { prof.group.quaternion.setFromAxisAngle(V(0, 0, 1), theta); } else prof.group.quaternion.identity();
+    prof.walk(t, 0.2);
+    // τόξο άλματος
+    arc.visible = T > 0.36 && T < 0.64;
+    if (arc.visible) {
+      const mid = A.clone().lerp(B, 0.5).add(V(0, 0.9, 0));
+      arc.geometry.dispose(); arc.geometry = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(A, mid, B), 32, 0.02, 6, false);
+    }
+  };
+});
+
+// ---------- 7: όλες οι ιστορίες ενός σύμπαντος ----------
+function makeBurst(hexA, hexB, { strands = 150, radius = 2.4, seed = 3 } = {}) {
+  const r = rng(seed), pos = [], tt = [];
+  for (let s = 0; s < strands; s++) {
+    let p = V(0, 0, 0); const d = V(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1).normalize();
+    const steps = 22, segLen = radius / steps;
+    for (let i = 0; i < steps; i++) {
+      d.add(V(r() - .5, r() - .5, r() - .5).multiplyScalar(0.55)).normalize();
+      const q = p.clone().add(d.clone().multiplyScalar(segLen * (0.7 + r() * 0.6)));
+      pos.push(p.x, p.y, p.z, q.x, q.y, q.z); tt.push(i / steps, (i + 1) / steps); p = q;
+      if (r() < 0.06) { // διακλάδωση
+        let p2 = p.clone(); const d2 = d.clone().add(V(r() - .5, r() - .5, r() - .5)).normalize();
+        for (let j = i; j < steps; j++) { const q2 = p2.clone().add(d2.clone().multiplyScalar(segLen)); pos.push(p2.x, p2.y, p2.z, q2.x, q2.y, q2.z); tt.push(j / steps, (j + 1) / steps); p2 = q2; d2.add(V(r() - .5, r() - .5, r() - .5).multiplyScalar(.5)).normalize(); }
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('aT', new THREE.Float32BufferAttribute(tt, 1));
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uA: { value: col(hexA) }, uB: { value: col(hexB) }, uTime: U.time, uOpacity: { value: 1 } },
+    vertexShader: `attribute float aT; varying float vT; void main(){ vT = aT; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `uniform vec3 uA, uB; uniform float uTime, uOpacity; varying float vT;
+      void main(){ float pulse = smoothstep(0.08, 0.0, abs(fract(vT - uTime*0.18) - 0.5) - 0.42);
+        vec3 c = mix(uA, uB, vT)*(0.32 + 1.5*pulse); gl_FragColor = vec4(c, uOpacity*(1.0 - vT*0.6)); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  return new THREE.LineSegments(geo, m);
+}
+worlds[7] = makeWorld(V(0, 0, 0), V(0.8, 1.6, 7.6), w => {
+  const c = DIMS[7].color;
+  const burst = makeBurst('#ffffff', c, { strands: 170, radius: 2.5 });
+  w.root.add(burst, haloSprite('#ffffff', 0.7));
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(2.7, 48, 32), fresnelMat(c, { intensity: 0.45, core: 0, power: 3.5 })); w.root.add(shell);
+  const lab = makeLabel('Μεγάλη Έκρηξη', { color: '#ffffff', size: 0.22 }); lab.position.set(0, -0.35, 0); w.root.add(lab);
+  const lab2 = makeLabel('όλες οι πιθανές ιστορίες = ένα σημείο της 7ης', { color: c, size: 0.26 }); lab2.position.set(0, -3.2, 0); w.root.add(lab2);
+  const prof = makeProfessor({ main: true }); prof.group.scale.setScalar(0.12); prof.holo(1, '#ffd37a'); prof.group.position.set(1.4, 0.9, 0.9); w.root.add(prof.group); w.prof = prof;
+  w.update = (t) => { burst.rotation.y = t * 0.07; burst.rotation.x = Math.sin(t * 0.05) * 0.3; prof.group.position.applyAxisAngle(V(0, 1, 0), 0.0); };
+});
+
+// ---------- 8 & 9: πολλά σύμπαντα ----------
+function orbMat(hex, seed, scaleN = 2.5) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: col(hex) }, uSeed: { value: seed }, uTime: U.time, uOpacity: { value: 1 }, uScaleN: { value: scaleN } },
+    vertexShader: VS_BASIC,
+    fragmentShader: NOISE + `uniform vec3 uColor; uniform float uSeed, uTime, uOpacity, uScaleN; varying vec3 vPos; varying vec3 vN; varying vec3 vV;
+      void main(){ float n = fbm(vPos*uScaleN + vec3(uSeed, uSeed*1.7, uTime*0.12));
+        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0);
+        vec3 c = uColor*(0.15 + 1.9*smoothstep(0.45, 0.8, n)) + uColor*f*2.2;
+        gl_FragColor = vec4(c, uOpacity*(0.55 + 0.45*f)); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+}
+const ORB_COLORS = ['#ff6fb3', '#59d6ff', '#8ef0c1', '#ffd37a', '#a77bff', '#ff8a6b', '#b3fff1', '#e07bff', '#6f8bff'];
+worlds[8] = makeWorld(V(0, 0.4, 0), V(0.4, 3.8, 8.8), w => {
+  const c = DIMS[8].color, r = rng(88);
+  const origin = V(-4.2, 0.4, 0);
+  { const hs = haloSprite('#ffffff', 0.9); hs.position.copy(origin); w.root.add(hs); }
+  const orbs = [];
+  let idx = 0;
+  const grow = (from, dir, depth) => {
+    const to = from.clone().add(dir.clone().multiplyScalar(1.9 + r() * 0.5));
+    w.root.add(tube([from, from.clone().lerp(to, 0.5).add(V(0, (r() - .5) * .4, 0)), to], 0.016, glowMat(c, { intensity: 1.6, flow: 2, speed: .3 }), { segs: 20, radial: 5 }));
+    const hex = ORB_COLORS[idx++ % ORB_COLORS.length];
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.38, 40, 28), orbMat(hex, idx * 3.1)); orb.position.copy(to); w.root.add(orb); orbs.push(orb);
+    if (depth > 0) for (const s of [-1, 1]) grow(to, dir.clone().applyAxisAngle(V(0, 1, 0), s * (0.5 + r() * 0.3)).add(V(0, (r() - .5) * .5, 0)).normalize(), depth - 1);
+  };
+  grow(origin, V(1, 0, 0), 3);
+  const ours = orbs[5];
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.012, 8, 96), glowMat('#ffffff', { intensity: 3, additive: false })); ring.position.copy(ours.position); w.root.add(ring);
+  const lab = makeLabel('το δικό μας σύμπαν', { color: '#ffffff', size: 0.24 }); lab.position.copy(ours.position).add(V(0, 0.9, 0)); w.root.add(lab);
+  w.update = (t) => { ring.lookAt(camera.position); orbs.forEach((o, i) => o.rotation.y = t * 0.2 + i); };
+});
+worlds[9] = makeWorld(V(0, 1.2, 0), V(5.8, 5.4, 7.0), w => {
+  const c = DIMS[9].color; const S = makeFoldSheet(w, c);
+  const mk = (parent, x, z, hex, seed, scaleN) => { const o = new THREE.Mesh(new THREE.SphereGeometry(0.34, 40, 28), orbMat(hex, seed, scaleN)); o.position.set(x, 0.36, z); parent.add(o); return o; };
+  const lefts = [[-1.2, -2, '#59d6ff'], [-2.6, -0.6, '#8ef0c1'], [-1.5, 1.2, '#ff6fb3'], [-3.1, 2.8, '#ff6fb3']].map(([x, z, h], i) => mk(S.left, x, z, h, i * 2.3, 2.5));
+  const rights = [[1.4, -1.8, '#a77bff'], [2.5, 0.2, '#6f8bff'], [1.2, 1.6, '#b3fff1'], [3.1, 2.8, '#ffd37a']].map(([x, z, h], i) => mk(S.right, x, z, h, 10 + i * 2.1, i === 3 ? 7.5 : 2.5));
+  for (const [arr, parent] of [[lefts, S.left], [rights, S.right]]) {
+    for (let i = 0; i + 1 < arr.length; i++) parent.add(tube([arr[i].position.clone().setY(0.02), arr[i].position.clone().lerp(arr[i + 1].position, .5).setY(0.02), arr[i + 1].position.clone().setY(0.02)], 0.014, glowMat(c, { intensity: 1.4, flow: 2 }), { segs: 16, radial: 5 }));
+  }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.012, 8, 96), glowMat('#ffffff', { intensity: 3, additive: false })); w.root.add(ring);
+  const lab = makeLabel('σύμπαν με άλλους νόμους', { color: '#ffd37a', size: 0.24 }); w.root.add(lab);
+  const arc = tube([V(0, 0, 0), V(0, 0.5, 0), V(0, 1, 0)], 0.02, glowMat('#ffffff', { intensity: 3, flow: 2, speed: 1.2 })); w.root.add(arc);
+  const prof = makeProfessor({ main: true }); prof.group.scale.setScalar(0.2); prof.holo(0.9, '#ffffff'); w.root.add(prof.group); w.prof = prof;
+  const A = lefts[3].position.clone().add(V(0, 0.4, 0));
+  w.update = (t) => {
+    const T = (t % 10) / 10;
+    const fold = smooth(0.12, 0.38, T) * (1 - smooth(0.68, 0.9, T)), theta = fold * Math.PI * 0.94; S.pivot.rotation.z = theta;
+    const Bw = rights[3].position.clone().add(V(0, 0.4, 0)).applyAxisAngle(V(0, 0, 1), theta);
+    let p;
+    if (T < 0.42) p = A.clone();
+    else if (T < 0.58) { const u = smooth(0.42, 0.58, T), mid = A.clone().lerp(Bw, .5).add(V(0, 1, 0)); p = A.clone().multiplyScalar((1 - u) ** 2).add(mid.multiplyScalar(2 * u * (1 - u))).add(Bw.clone().multiplyScalar(u * u)); }
+    else p = Bw.clone();
+    if (T > 0.95) p = A.clone();
+    prof.group.position.copy(p); prof.walk(t, 0.15);
+    ring.position.copy(T >= 0.58 && T <= 0.95 ? Bw.clone().sub(V(0, 0.4, 0)) : lefts[3].position); ring.lookAt(camera.position);
+    lab.position.copy(rights[3].position.clone().applyAxisAngle(V(0, 0, 1), theta)).add(V(0, 1.1, 0));
+    arc.visible = T > 0.36 && T < 0.64;
+    if (arc.visible) { const mid = A.clone().lerp(Bw, .5).add(V(0, 1, 0)); arc.geometry.dispose(); arc.geometry = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(A, mid, Bw), 32, 0.02, 6, false); }
+  };
+});
+
+// ---------- χορδή που δονείται (GPU) ----------
+function stringMat(hexA, hexB) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uAmp: { value: 0.16 }, uModes: { value: new THREE.Vector4(1, .6, .35, .2) }, uA: { value: col(hexA) }, uB: { value: col(hexB) }, uOpacity: { value: 1 }, uIntensity: { value: 3 } },
+    vertexShader: `uniform float uTime, uAmp; uniform vec4 uModes; varying float vPhi; varying vec3 vN; varying vec3 vV;
+      void main(){ vec3 p = position; float phi = atan(p.y, p.x); vec2 rad = vec2(cos(phi), sin(phi));
+        float dr = uAmp*(uModes.x*cos(2.0*phi - 2.0*uTime) + uModes.y*cos(3.0*phi + 2.4*uTime) + uModes.z*cos(5.0*phi - 3.0*uTime) + uModes.w*cos(7.0*phi + 3.5*uTime));
+        float dz = uAmp*(uModes.x*sin(3.0*phi + 1.5*uTime) + uModes.y*sin(4.0*phi - 2.0*uTime) + uModes.z*sin(6.0*phi + 2.6*uTime));
+        p.xy += rad*dr; p.z += dz; vPhi = phi;
+        vec4 mv = modelViewMatrix*vec4(p, 1.0); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform vec3 uA, uB; uniform float uTime, uOpacity, uIntensity; varying float vPhi; varying vec3 vN; varying vec3 vV;
+      void main(){ float k = 0.5 + 0.5*sin(vPhi*3.0 + uTime*1.7); float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 1.5);
+        gl_FragColor = vec4(mix(uA, uB, k)*uIntensity*(0.7 + 0.6*(1.0 - f)), uOpacity); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+}
+worlds[10] = makeWorld(V(0, 0, 0), V(0, 1.2, 5.6), w => {
+  const c = DIMS[10].color;
+  const str = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.035, 12, 420), stringMat('#ffd37a', '#ff6fb3')); w.root.add(str);
+  const str2 = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.012, 8, 420), stringMat('#ffffff', '#59d6ff')); str2.material.uniforms.uAmp.value = 0.22; str2.material.uniforms.uIntensity.value = 1.2; w.root.add(str2);
+  // όλα τα σύμπαντα σπειροειδώς προς το κέντρο
+  const N = 2600, pos = new Float32Array(N * 3), ph = new Float32Array(N), cc = new Float32Array(N * 3), r = rng(10);
+  for (let i = 0; i < N; i++) { pos.set([r() * TAU, r(), (r() - .5) * 0.8], i * 3); ph[i] = r(); const k = col(ORB_COLORS[i % ORB_COLORS.length]); cc.set([k.r, k.g, k.b], i * 3); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('aPh', new THREE.BufferAttribute(ph, 1)); geo.setAttribute('aCol', new THREE.BufferAttribute(cc, 3));
+  const pts = new THREE.Points(geo, new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uOpacity: { value: 1 }, uPR: { value: renderer.getPixelRatio() } },
+    vertexShader: `attribute float aPh; attribute vec3 aCol; uniform float uTime, uPR; varying vec3 vC; varying float vK;
+      void main(){ float k = fract(aPh - uTime*0.07); float R = 0.25 + 6.0*k*k; float a = position.x + (1.0 - k)*6.0;
+        vec3 p = vec3(cos(a)*R, position.z*R*0.5 + sin(a*2.0 + position.y*6.0)*0.15*R, sin(a)*R);
+        vec4 mv = modelViewMatrix*vec4(p, 1.0); gl_Position = projectionMatrix*mv; gl_PointSize = (2.0 + 5.0*position.y)*uPR*(3.0/ -mv.z + 0.4);
+        vC = aCol; vK = k; }`,
+    fragmentShader: `uniform float uOpacity; varying vec3 vC; varying float vK; void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d)*smoothstep(0.0, 0.15, vK);
+      gl_FragColor = vec4(vC*a*1.6, a*uOpacity); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  pts.frustumCulled = false; w.root.add(pts, haloSprite(c, 0.8));
+  const lab = makeLabel('κλειστή χορδή: κάθε δόνηση, άλλο σωματίδιο', { color: c, size: 0.22 }); lab.position.set(0, 1.95, 0); w.root.add(lab);
+  w.update = (t) => {
+    const k = (t * 0.12) % 4, m = str.material.uniforms.uModes.value;
+    m.set(1 - smooth(0, 1, k) * 0.7, .35 + .5 * Math.sin(t * .3) ** 2, .2 + .4 * smooth(1.5, 3, k), .15 + .3 * Math.sin(t * .21) ** 2);
+    str2.material.uniforms.uModes.value.copy(m);
+    str.rotation.x = 0.5 + Math.sin(t * 0.2) * 0.3; str.rotation.y = t * 0.15; str2.rotation.copy(str.rotation);
+  };
+});
+
+// ---------- 11: θεωρία Μ (βράνες) ----------
+function braneMat(hex) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uColor: { value: col(hex) }, uOpacity: { value: 1 } },
+    vertexShader: `uniform float uTime; varying vec3 vP; varying vec3 vV;
+      float h(vec2 q){ return 0.16*sin(q.x*1.3 + uTime*0.8)*cos(q.y*1.1 - uTime*0.6) + 0.08*sin(q.x*2.7 - q.y*1.9 + uTime*1.3); }
+      void main(){ vec3 p = position; p.z += h(p.xy); vP = p; vec4 mv = modelViewMatrix*vec4(p, 1.0); vV = -mv.xyz; gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: NOISE + `uniform vec3 uColor; uniform float uTime, uOpacity; varying vec3 vP; varying vec3 vV;
+      void main(){ vec3 n = normalize(cross(dFdx(vP), dFdy(vP))); float f = pow(1.0 - abs(dot(n, normalize(vV))), 2.0);
+        float film = 0.5 + 0.5*sin(18.0*f + fbm(vP*0.8 + uTime*0.05)*6.0);
+        vec3 c = mix(uColor, hsv2rgb(vec3(fract(film*0.6 + 0.55), 0.6, 1.0)), 0.55)*(0.12 + 1.1*f + 0.25*film);
+        float edge = smoothstep(4.0, 3.4, max(abs(vP.x), abs(vP.y)));
+        gl_FragColor = vec4(c, uOpacity*(0.25 + 0.6*f)*edge); }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+  });
+}
+worlds[11] = makeWorld(V(0, 0, 0), V(5.6, 2.8, 6.4), w => {
+  const c = DIMS[11].color;
+  const b1 = new THREE.Mesh(new THREE.PlaneGeometry(8, 8, 140, 140), braneMat(c)); b1.rotation.x = -Math.PI / 2; b1.position.y = -1.1;
+  const b2 = new THREE.Mesh(new THREE.PlaneGeometry(8, 8, 140, 140), braneMat('#e07bff')); b2.rotation.x = -Math.PI / 2; b2.position.y = 1.2;
+  w.root.add(b1, b2);
+  const open = [];
+  for (let i = 0; i < 6; i++) {
+    const m = glowMat(i % 2 ? '#ffd37a' : '#ff6fb3', { intensity: 3, flow: 3, speed: 0.8 });
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), m); w.root.add(mesh); open.push({ mesh, x: -2.6 + i * 1.05, z: (i % 3 - 1) * 1.4, ph: i * 1.7 });
+  }
+  const closed = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.018, 8, 160), stringMat('#ffffff', '#b3fff1')); closed.material.uniforms.uAmp.value = 0.06; w.root.add(closed);
+  const l1 = makeLabel('βράνη', { color: c, size: 0.3 }); l1.position.set(3.6, -0.7, 2.2); w.root.add(l1);
+  const l2 = makeLabel('κλειστή χορδή', { color: '#ffffff', size: 0.24 }); w.root.add(l2);
+  const l3 = makeLabel('ανοιχτή χορδή: τα άκρα της μένουν στη βράνη', { color: '#ffd37a', size: 0.22 }); l3.position.set(1.4, -2.05, 2.4); w.root.add(l3);
+  w.update = (t) => {
+    for (const o of open) {
+      const y0 = -1.1, a = V(o.x - 0.25, y0, o.z), b = V(o.x + 0.25, y0, o.z);
+      const top = V(o.x + Math.sin(t * 1.6 + o.ph) * 0.3, y0 + 0.65 + 0.25 * Math.sin(t * 2.1 + o.ph), o.z + Math.cos(t * 1.3 + o.ph) * 0.3);
+      const pts = [a, a.clone().lerp(top, .5).add(V(-0.12, 0, 0)), top, b.clone().lerp(top, .5).add(V(0.12, 0, 0)), b];
+      o.mesh.geometry.dispose(); o.mesh.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 28, 0.018, 6, false);
+    }
+    const u = (t * 0.12) % 1; closed.position.set(-2.4 + u * 4.8, -0.9 + Math.sin(u * Math.PI) * 2.0, 0.6); closed.rotation.set(t * 0.7, t * 0.5, 0);
+    l2.position.copy(closed.position).add(V(0, 0.55, 0));
+  };
+});
+
+// ---------- Ασανσέρ 4D ----------
+function tunnelMat(c1, c2) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uOpacity: { value: 1 }, uC1: { value: col(c1) }, uC2: { value: col(c2) }, uGlow: { value: 1 } },
+    vertexShader: VS_BASIC,
+    fragmentShader: NOISE + `uniform float uTime, uOpacity, uGlow; uniform vec3 uC1, uC2; varying vec2 vUv;
+      float rl(vec2 q, float s, float w){ float d = max(abs(q.x), abs(q.y)); return smoothstep(w, 0.0, abs(d - s)); }
+      void main(){ vec2 q = vUv - 0.5; float d = max(abs(q.x), abs(q.y));
+        vec3 neb = vec3(0.015, 0.01, 0.05) + vec3(0.30, 0.07, 0.42)*smoothstep(0.42, 0.9, fbm(vec3(q*3.0, uTime*0.03)))
+                 + vec3(0.03, 0.2, 0.34)*smoothstep(0.5, 0.95, fbm(vec3(q*5.0 + 7.0, uTime*0.02)));
+        float lines = 0.0, ph = fract(uTime*0.12);
+        for (int k = 0; k < 9; k++){ float s = 0.5*pow(0.7, float(k) + ph); lines += rl(q, s, 0.003 + 0.004*s)*(0.25 + 1.5*s); }
+        float diag = smoothstep(0.005, 0.0, abs(abs(q.x) - abs(q.y)))*step(0.015, d);
+        vec3 c = neb*(0.6 + 0.4*uGlow) + (uC1*lines + uC2*diag*0.7)*1.7*uGlow + uC2*smoothstep(0.012, 0.0, abs(d - 0.494))*1.6;
+        gl_FragColor = vec4(c, uOpacity); }`,
+    transparent: true
+  });
+}
+const elevator = makeWorld(V(0, 1.1, 0.8), V(5.0, 2.6, 6.6), w => {
+  const W = 2, H = 2.4, D = 2, wall = 0.05;
+  const metal = new THREE.MeshStandardMaterial({ color: 0x8b8fa3, metalness: 0.9, roughness: 0.32 });
+  const metalDark = new THREE.MeshStandardMaterial({ color: 0x4a4d5c, metalness: 0.85, roughness: 0.38 });
+  const cab = new THREE.Group(); w.root.add(cab);
+  const tunnels = [];
+  const panel = (w2, h2, pos, rotY, rotX = 0, tunnel = true) => {
+    const g = new THREE.Group();
+    const outer = new THREE.Mesh(new THREE.BoxGeometry(w2, h2, wall), metal); g.add(outer);
+    if (tunnel) { const tm = tunnelMat('#a77bff', '#59d6ff'); tunnels.push(tm); const inner = new THREE.Mesh(new THREE.PlaneGeometry(w2 * 0.98, h2 * 0.98), tm); inner.position.z = wall / 2 + 0.002; g.add(inner); }
+    g.position.copy(pos); g.rotation.set(rotX, rotY, 0); cab.add(g); return g;
+  };
+  panel(W, H, V(0, H / 2, -D / 2), 0);                 // πίσω
+  panel(D, H, V(-W / 2, H / 2, 0), Math.PI / 2);       // αριστερά
+  panel(W, D, V(0, 0, 0), 0, -Math.PI / 2);            // δάπεδο
+  panel(W, D, V(0, H, 0), 0, Math.PI / 2);             // οροφή
+  // μπροστινή πλευρά με κλειστές πόρτες
+  const frontL = new THREE.Mesh(new THREE.BoxGeometry(0.22, H, wall), metalDark); frontL.position.set(-W / 2 + 0.11, H / 2, D / 2); cab.add(frontL);
+  const frontR = frontL.clone(); frontR.position.x = W / 2 - 0.11; cab.add(frontR);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, wall), metalDark); top.position.set(0, H - 0.15, D / 2); cab.add(top);
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0xa3a7b8, metalness: 0.92, roughness: 0.25 });
+  const d1 = new THREE.Mesh(new THREE.BoxGeometry(0.78, H - 0.3, 0.04), doorMat); d1.position.set(-0.39, (H - 0.3) / 2, D / 2 + 0.01); cab.add(d1);
+  const d2 = d1.clone(); d2.position.x = 0.39; cab.add(d2);
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.012, H - 0.3, 0.05), glowMat('#59d6ff', { intensity: 3, additive: false })); seam.position.set(0, (H - 0.3) / 2, D / 2 + 0.02); cab.add(seam);
+  const lock = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), glowMat('#ff4d6d', { intensity: 1, additive: false })); lock.position.set(0.85, 1.3, D / 2 + 0.06); cab.add(lock);
+  // οθόνη ορόφου
+  const sc = document.createElement('canvas'); sc.width = 256; sc.height = 96; const g2 = sc.getContext('2d');
+  g2.fillStyle = '#120a1c'; g2.fillRect(0, 0, 256, 96); g2.fillStyle = '#ff4d6d'; g2.font = '700 64px Commissioner, system-ui'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText('4D', 128, 52);
+  const st = new THREE.CanvasTexture(sc); st.colorSpace = THREE.SRGBColorSpace;
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.16), new THREE.MeshBasicMaterial({ map: st, transparent: true })); screen.position.set(0, H - 0.15, D / 2 + 0.03); cab.add(screen);
+  // κουμπιά (μέσα, αριστερός τοίχος)
+  const btnMat = glowMat('#ffd37a', { intensity: 1.6, additive: false });
+  for (let i = 0; i < 12; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 16), btnMat); b.rotation.z = Math.PI / 2; b.position.set(-W / 2 + 0.05, 0.95 + Math.floor(i / 2) * 0.1, 0.55 + (i % 2) * 0.1); cab.add(b); }
+  // φως οροφής
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 0.08), glowMat('#ffffff', { intensity: 2.5, additive: false })); strip.position.set(0, H - 0.04, 0); cab.add(strip);
+  const cl = new THREE.PointLight(0xc9b8ff, 6, 5, 2); cl.position.set(0, H - 0.4, 0); cab.add(cl);
+  // πάτωμα έξω
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), gridMat('#e07bff', { cell: 0.5, fade: 9, opacity: 0.4 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -0.01; w.root.add(floor);
+  // αναλογία Επιπεδοχώρου
+  const flatland = new THREE.Group(); flatland.position.set(3.0, 0.02, 2.4); w.root.add(flatland);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), gridMat('#8ef0c1', { cell: 0.2, fade: 1.3, opacity: 0.55, fill: 0.08 })); plate.rotation.x = -Math.PI / 2; flatland.add(plate);
+  const room = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(0.9, 0.9)), new THREE.LineBasicMaterial({ color: col('#8ef0c1') })); room.rotation.x = -Math.PI / 2; room.position.y = 0.01; flatland.add(room);
+  const roomWall = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.9), fresnelMat('#8ef0c1', { intensity: 0.8, core: 0.05 })); roomWall.position.y = 0.03; flatland.add(roomWall);
+  const flatDot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), glowMat('#ffd37a', { intensity: 4, additive: false })); flatland.add(flatDot);
+  const flatLab = makeLabel('Επιπεδοχώρος: μπαίνεις «από πάνω»', { color: '#8ef0c1', size: 0.17 }); flatLab.position.set(0, 0.75, 0); flatland.add(flatLab);
+  // πινακίδα χωρητικότητας δίπλα στην πόρτα
+  const sign = makeLabel('Χωρητικότητα: <b>8 άτομα</b>', { color: '#ffd37a', size: 0.2, html: true, cls: 'sign' }); sign.position.set(-1.55, 1.75, D / 2 + 0.05); cab.add(sign);
+  // στρώματα W μέσα στην καμπίνα: κάθε στρώμα είναι ένα ολόκληρο 3D αντίγραφο της καμπίνας σε άλλο W.
+  // Στην προοπτική προβολή τα βαθύτερα στρώματα φαίνονται σαν μικρότερα κουτιά προς το κέντρο (όπως ο υπερκύβος).
+  const CEN = V(0, H / 2, 0), NL = 6, sK = k => Math.pow(0.74, k);
+  const layerCol = ['#59d6ff', '#6f8bff', '#a77bff', '#e07bff', '#ff6fb3', '#ffc35e'];
+  const cornerPts = [];
+  for (let k = 0; k < NL; k++) {
+    const s = sK(k);
+    if (k > 0) {
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W * 0.98 * s, H * 0.98 * s, D * 0.98 * s)), new THREE.LineBasicMaterial({ color: col(layerCol[k]), transparent: true, opacity: 0.9 }));
+      e.position.copy(CEN); cab.add(e);
+    }
+    const c = [];
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) c.push(V(sx * W * 0.49 * s, sy * H * 0.49 * s, sz * D * 0.49 * s).add(CEN));
+    cornerPts.push(c);
+  }
+  { const pos = []; for (let k = 1; k < NL; k++) for (let i = 0; i < 8; i++) { const a = cornerPts[k - 1][i], b = cornerPts[k][i]; pos.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    cab.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: col('#b3a6ff'), transparent: true, opacity: 0.45 }))); }
+  // επιβάτες: 23 φοιτητές και ο Καθηγητής
+  const STY = [[0x2f8f6b, 0x2b3550], [0xc0392b, 0x34495e], [0xe0a030, 0x3f6296], [0x7d3c98, 0x2c2c38], [0x1f7fbf, 0x4a4a52], [0xe86a92, 0x3f6296], [0x3aa655, 0x22283a], [0xf2f2f2, 0x31456b]];
+  const SKIN = [0xd6a68c, 0xc68f6e, 0xe8bfa4, 0x9a6b4f, 0xf0cdb4];
+  const HAIR = [0x2a1d16, 0x5b3a20, 0x101014, 0xb07a3c, 0x7a7a80];
+  const r = rng(42), people = [];
+  const slots = [];
+  [[-0.58, -0.5], [0.58, -0.5], [-0.62, 0.22]].forEach(([x, z]) => slots.push({ k: 0, x, z }));
+  for (let k = 1; k < NL; k++) [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.4], [0.45, 0.4]].forEach(([x, z]) => slots.push({ k, x, z }));
+  const NSTU = 23;
+  for (let i = 0; i < NSTU; i++) {
+    const [shirt, jeans] = STY[i % STY.length];
+    const p = makeProfessor({ shirt, jeans, skin: SKIN[i % SKIN.length], hairColor: HAIR[(i * 3) % HAIR.length], hair: r() < 0.15 ? 'bald' : 'short', beard: r() < 0.22 ? 'stubble' : 'none', glasses: r() < 0.35, satchel: false, build: r() < 0.35 ? 'slim' : 'avg', collar: shirt });
+    p.base = 0.88 + r() * 0.12;
+    const row = Math.floor(i / 8), colI = i % 8;
+    p.queue = V(-1.2 - colI * 0.55 - (row % 2) * 0.25, 0, 1.9 + row * 0.75 + colI * 0.12);
+    p.slot = slots[i]; p.tIn = 5.4 + i * 0.5; p.dur = 1.3; p.ph = r() * TAU;
+    w.root.add(p.group); people.push(p);
+  }
+  const prof = makeProfessor({ main: true }); w.root.add(prof.group); w.prof = prof;
+  prof.slot = { k: 0, x: 0.05, z: 0.45 }; prof.tIn = 5.4 + NSTU * 0.5 + 0.8; prof.dur = 1.8; prof.base = 1; prof.queue = V(0, 0, 1.48);
+  const all = [...people, prof];
+  const insidePos = (p) => { const s = sK(p.slot.k); const fl = V(p.slot.x, 0, p.slot.z); return { pos: CEN.clone().add(fl.sub(CEN).multiplyScalar(s)), s: s * p.base }; };
+  w.cab = cab; w.tunnels = tunnels; w.lock = lock; w.flatDot = flatDot; w.sign = sign;
+  w.state = { t0: null, running: false };
+  w.update = (t) => {
+    const st2 = w.state; const T = st2.running ? t - st2.t0 : 0;
+    const R = 1;
+    let step = 0, wNow = 0, inside = 0;
+    const tEnd = prof.tIn + prof.dur;
+    if (T >= 3.4) step = 1; if (T >= 5.4) step = 2; if (T >= tEnd + 0.4) step = 3;
+    for (const p of all) {
+      let pos, sc = p.base, walking = 0, face = Math.PI, glow = 0, kw = 0;
+      if (p === prof && T < 3.4) { // ο Καθηγητής δοκιμάζει την πόρτα
+        const z = T < 2.6 ? lerp(2.4, 1.48, smooth(0, 2.6, T)) : 1.48 + 0.08 * Math.max(0, Math.sin((T - 2.6) * 9)) * Math.exp(-(T - 2.6) * 3);
+        pos = V(0, 0, z); walking = T < 2.6 ? 1 : 0;
+      } else if (T < p.tIn) {
+        pos = p === prof ? V(0, 0, 1.48) : p.queue.clone(); face = Math.PI + Math.sin(t * 0.7 + (p.ph || 0)) * 0.25;
+      } else if (T < p.tIn + p.dur) {
+        const u = (T - p.tIn) / p.dur, sW = Math.abs(Math.cos(Math.PI * u)); kw = Math.sin(Math.PI * u); wNow = Math.max(wNow, kw);
+        if (u < 0.5) { pos = (p === prof ? V(0, 0, 1.48) : p.queue.clone()); sc = p.base * sW; pos.y += 0.9 * p.base * (1 - sW); }
+        else { const ip = insidePos(p); pos = ip.pos; sc = ip.s * sW; pos.y += 0.9 * ip.s * (1 - sW); face = 0; if (u > 0.5) inside++; }
+        glow = 0.2 + 0.45 * kw;
+      } else { const ip = insidePos(p); pos = ip.pos; sc = ip.s; face = Math.sin(t * 0.5 + (p.ph || 0)) * 0.35; inside++; }
+      p.group.position.copy(pos); p.group.scale.setScalar(Math.max(sc, 0.0001)); p.group.visible = sc > 0.01; p.group.rotation.y = face;
+      p.walk(t + (p.ph || 0), walking);
+      const hue = col('#6f8bff').lerp(col('#e07bff'), Math.min(1, 2 * kw)).lerp(col('#ffc35e'), Math.max(0, 2 * kw - 1));
+      p.holo(p === prof ? glow : glow * 0.55, hue);
+    }
+    w.lock.material.uniforms.uIntensity.value = T > 2.5 && T < 3.6 ? 5 + 3 * Math.sin(T * 30) : 1.2;
+    const fu = st2.running ? smooth(3.6, 5.2, T) : 0;
+    w.flatDot.position.set(lerp(0.72, 0, fu), 0.07 + Math.sin(Math.PI * fu) * 0.55, 0);
+    for (const tm of w.tunnels) tm.uniforms.uGlow.value = step >= 3 ? 1.6 : 1;
+    const full = inside >= all.length;
+    w.sign.element.innerHTML = inside > 8 ? `Χωρητικότητα: <s>8 άτομα</s> <b>μέσα ${inside}</b>` : 'Χωρητικότητα: <b>8 άτομα</b>';
+    w.step = step; w.w4 = wNow; w.T = T; w.inside = inside; w.total = all.length; w.full = full;
+  };
+});
+
+// ---------- Ταξίδι στο πολύ μικρό (δυνάμεις του 10) ----------
+function calabiYauGeometry(n = 5, nx = 12, ny = 16, a = 1.0) {
+  const re = [], im = [], patch = [], index = [];
+  let base = 0;
+  const cpow = (x, y, p) => { const r = Math.hypot(x, y), th = Math.atan2(y, x), rp = Math.pow(r, p); return [rp * Math.cos(th * p), rp * Math.sin(th * p)]; };
+  for (let k1 = 0; k1 < n; k1++) for (let k2 = 0; k2 < n; k2++) {
+    for (let i = 0; i <= nx; i++) for (let j = 0; j <= ny; j++) {
+      const x = (i / nx) * Math.PI / 2, y = -a + 2 * a * j / ny;
+      const cr = Math.cos(x) * Math.cosh(y), ci = -Math.sin(x) * Math.sinh(y);
+      const sr = Math.sin(x) * Math.cosh(y), si = Math.cos(x) * Math.sinh(y);
+      const [c1r, c1i] = cpow(cr, ci, 2 / n), [s1r, s1i] = cpow(sr, si, 2 / n);
+      const p1 = TAU * k1 / n, p2 = TAU * k2 / n;
+      const z1r = Math.cos(p1) * c1r - Math.sin(p1) * c1i, z1i = Math.sin(p1) * c1r + Math.cos(p1) * c1i;
+      const z2r = Math.cos(p2) * s1r - Math.sin(p2) * s1i, z2i = Math.sin(p2) * s1r + Math.cos(p2) * s1i;
+      re.push(z1r, z2r); im.push(z1i, z2i); patch.push(k1 * n + k2);
+    }
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      const v = base + i * (ny + 1) + j; index.push(v, v + ny + 1, v + 1, v + 1, v + ny + 1, v + ny + 2);
+    }
+    base += (nx + 1) * (ny + 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(re.length / 2 * 3);
+  for (let i = 0; i < re.length / 2; i++) pos.set([re[2 * i], re[2 * i + 1], 0], i * 3);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aRe', new THREE.Float32BufferAttribute(re, 2)); geo.setAttribute('aIm', new THREE.Float32BufferAttribute(im, 2)); geo.setAttribute('aPatch', new THREE.Float32BufferAttribute(patch, 1));
+  geo.setIndex(index); geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 2);
+  return geo;
+}
+function cyMat() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uAlpha: { value: 0.8 }, uOpacity: { value: 1 }, uIntensity: { value: 1.2 } },
+    vertexShader: `attribute vec2 aRe; attribute vec2 aIm; attribute float aPatch; uniform float uAlpha; varying float vPatch; varying vec3 vPosV;
+      void main(){ vec3 p = vec3(aRe.x, aRe.y, cos(uAlpha)*aIm.x + sin(uAlpha)*aIm.y);
+        vec4 mv = modelViewMatrix*vec4(p, 1.0);
+        #ifdef USE_INSTANCING
+        mv = modelViewMatrix*instanceMatrix*vec4(p, 1.0);
+        #endif
+        vPosV = mv.xyz; vPatch = aPatch; gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: NOISE + `uniform float uTime, uOpacity, uIntensity; varying float vPatch; varying vec3 vPosV;
+      void main(){ vec3 n = normalize(cross(dFdx(vPosV), dFdy(vPosV))); float f = 1.0 - abs(dot(n, normalize(-vPosV)));
+        float hue = fract(vPatch/25.0*0.85 + uTime*0.02 + f*0.25);
+        vec3 c = hsv2rgb(vec3(hue, 0.7, 1.0))*(0.06 + 1.5*pow(f, 2.2))*uIntensity;
+        gl_FragColor = vec4(c, uOpacity*(0.15 + 0.85*pow(f, 1.5))); }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+  });
+}
+// Σε κάθε στάση: τίτλος, ποιες διαστάσεις «φαίνονται» (μπάρα 11 θέσεων) και εξήγηση.
+// κατάσταση θέσης: B = μεγάλη, C = τυλιγμένη, I = ιδέα/υπόθεση, '-' = δεν παίζει ρόλο εδώ
+const DIM_SLOTS = ['x', 'y', 'z', 't', '5', '6', '7', '8', '9', '10', '11'];
+const DIM_NAMES = ['μήκος', 'πλάτος', 'ύψος', 'χρόνος', '5η', '6η', '7η', '8η', '9η', '10η', '11η'];
+const LAYERS = [
+  { e: 0, title: '1 m · κλίμακα ανθρώπου', dims: 'BBBB-------',
+    label: 'Ζούμε σε <b>3 διαστάσεις χώρου</b>: μήκος (x), πλάτος (y), ύψος (z). Χρειάζεσαι 3 αριθμούς για να πεις πού είναι κάτι. Η <b>4η</b> είναι ο χρόνος (t): πότε συμβαίνει. Ο κύβος έχει πλευρά 1 m.' },
+  { e: -3, title: '1 mm · μια τυλιγμένη διάσταση', dims: 'BBBBI------',
+    label: 'Το λεπτό «λάστιχο» από μακριά μοιάζει με <b>γραμμή</b> (1 διάσταση). Από κοντά έχει και έναν <b>κύκλο</b>: μια δεύτερη, τυλιγμένη διάσταση. Η μυρμηγκίτσα μπορεί να κάνει τον γύρο του. Έτσι φαντάστηκαν οι Kaluza και Klein μια <b>5η διάσταση</b>: κύκλο τόσο μικρό που δεν τον βλέπουμε.' },
+  { e: -10, title: '10⁻¹⁰ m · άτομο', dims: 'BBBB-------',
+    label: 'Το νέφος των ηλεκτρονίων είναι <b>τρισδιάστατο</b>: ο χώρος έχει ακόμα 3 διαστάσεις. Τα «σχήματα» (σφαίρα, αλτήρας) είναι πού είναι πιθανό να βρεθεί το ηλεκτρόνιο. Ο <b>χρόνος</b> μετράει πόσο γρήγορα αλλάζουν.' },
+  { e: -14.3, title: '10⁻¹⁴ m · πυρήνας', dims: 'BBBB-------',
+    label: 'Πρωτόνια και νετρόνια. Ακόμα και εδώ οι πειραματικοί φυσικοί μετρούν <b>3 διαστάσεις χώρου και 1 χρόνου</b>, ούτε περισσότερες ούτε λιγότερες.' },
+  { e: -15.3, title: '10⁻¹⁵ m · πρωτόνιο', dims: 'BBBB-------',
+    label: 'Τρία κουάρκ που τα δένουν γκλουόνια. Το LHC «κοιτάζει» ως περίπου 10⁻¹⁹ m και δεν έχει δει <b>καμία επιπλέον διάσταση</b>. Αν υπάρχουν, είναι μικρότερες.' },
+  { e: -24, title: '10⁻¹⁹ ως 10⁻³⁵ m · η έρημος', dims: 'BBBB??????-',
+    label: 'Εδώ <b>κανένα πείραμα</b> δεν έχει φτάσει. Τα φωτάκια είναι ζεύγη σωματιδίων που εμφανίζονται και εξαφανίζονται (κβαντικές διακυμάνσεις). Αυτό το κενό είναι αρκετό για να κρύβονται διαστάσεις που δεν θα τις είχαμε προσέξει.' },
+  { e: -34.2, title: '10⁻³⁵ m · μήκος Planck', dims: 'BBBBCCCCCC-',
+    label: 'Στη θεωρία χορδών, σε <b>κάθε σημείο</b> του χώρου κρύβονται <b>6 ακόμα διαστάσεις</b> (5η ως 10η), τυλιγμένες σε ένα σχήμα Calabi–Yau. Σύνολο: <b>9 χώρου + 1 χρόνου = 10</b>. Δεν είναι «παράλληλοι κόσμοι»: είναι κατευθύνσεις τόσο μικρές που αν προχωρήσεις λίγο, γυρνάς πίσω.' },
+  { e: -35.2, title: 'Calabi–Yau · οι 6 τυλιγμένες', dims: 'BBBBCCCCCCI',
+    label: 'Οι 6 τυλιγμένες διαστάσεις είναι <b>3 μιγαδικές</b> (κάθε μιγαδική = 2 πραγματικές). Εδώ βλέπεις μια δισδιάστατη τομή τους, προβεβλημένη από 4D σε 3D όπως ο υπερκύβος. Το <b>σχήμα</b> τους ορίζει ποια σωματίδια υπάρχουν. Η χορδή δονείται πάνω τους. Η θεωρία Μ προσθέτει μία ακόμα, την <b>11η</b>.' }
+];
+function dimBar(code) {
+  return '<div class="dimbar" role="img" aria-label="Διαστάσεις σε αυτή την κλίμακα">' + DIM_SLOTS.map((sl, i) => {
+    const st = code[i]; const cls = st === 'B' ? 'big' : st === 'C' ? 'compact' : st === 'I' ? 'idea' : st === '?' ? 'maybe' : 'off';
+    return `<span class="slot ${cls}" title="${DIM_NAMES[i]}">${sl}</span>`; }).join('') + '</div>';
+}
+const DIM_LEGEND = '<div class="dimlegend"><span class="slot big">x</span> μεγάλη <span class="slot compact">5</span> τυλιγμένη <span class="slot idea">5</span> υπόθεση</div>';
+const zoom = makeWorld(V(0, 0, 0), V(0, 0.5, 4.4), w => {
+  const L = LAYERS.map(() => { const g = new THREE.Group(); w.root.add(g); return g; });
+  // 0: κύβος 1 m και πάτωμα
+  { const f = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), gridMat('#59d6ff', { cell: 0.25, fade: 4, opacity: 0.5 })); f.rotation.x = -Math.PI / 2; f.position.y = -0.5; L[0].add(f);
+    const cube = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: col('#59d6ff'), transparent: true })); L[0].add(cube);
+    const lab = makeLabel('1 m', { color: '#59d6ff', size: 0.16 }); lab.position.set(0.68, 0.55, 0.5); L[0].add(lab); }
+  // 1: λάστιχο Kaluza–Klein
+  { const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 30, 48, 1, true), new THREE.ShaderMaterial({
+      uniforms: { uOpacity: { value: 1 }, uTime: U.time },
+      vertexShader: VS_BASIC,
+      fragmentShader: `uniform float uOpacity, uTime; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+        void main(){ float ring = smoothstep(0.40, 0.48, abs(fract(vUv.y*150.0) - 0.5)); float seam = smoothstep(0.44, 0.49, abs(fract(vUv.x*8.0) - 0.5));
+          float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 1.5);
+          vec3 c = vec3(0.35, 0.95, 0.75)*(0.06 + 0.9*ring + 0.5*seam + 0.7*f); gl_FragColor = vec4(c, uOpacity*(0.25 + 0.75*max(ring, f))); }`,
+      transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    hose.rotation.z = Math.PI / 2; L[1].add(hose);
+    const ant = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 8), glowMat('#ffd37a', { intensity: 5, additive: false })); L[1].add(ant); L[1].userData.ant = ant; }
+  // 2: άτομο
+  { const N = 5200, p = new Float32Array(N * 3), cc = new Float32Array(N * 3), r = rng(2);
+    for (let i = 0; i < N; i++) {
+      let x, y, z;
+      if (i % 3 === 0) { const R = -Math.log(1 - r()) * 0.35, u = r() * 2 - 1, th = r() * TAU, s = Math.sqrt(1 - u * u); x = R * s * Math.cos(th); y = R * u; z = R * s * Math.sin(th); cc.set([0.35, 0.8, 1.0], i * 3); }
+      else { for (;;) { x = (r() * 2 - 1) * 1.6; y = (r() * 2 - 1) * 1.6; z = (r() * 2 - 1) * 1.6; const rr = Math.hypot(x, y, z); const psi = (i % 3 === 1 ? x : z) * Math.exp(-rr / 0.55); if (r() < psi * psi * 9) break; } cc.set(i % 3 === 1 ? [0.9, 0.45, 1.0] : [1.0, 0.55, 0.7], i * 3); }
+      p.set([x, y, z], i * 3);
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(p, 3)); geo.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.022, vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
+    L[2].add(pts, haloSprite('#ffffff', 0.12)); L[2].userData.spin = pts; }
+  // 3: πυρήνας
+  { const r = rng(14);
+    for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.17, 24, 16), new THREE.MeshStandardMaterial({ color: i % 2 ? 0xff5f7e : 0x8aa0ff, emissive: i % 2 ? 0x601020 : 0x182a60, roughness: .4, transparent: true }));
+      const u = r() * 2 - 1, th = r() * TAU, s = Math.sqrt(1 - u * u), R = Math.cbrt(r()) * 0.33; m.position.set(R * s * Math.cos(th), R * u, R * s * Math.sin(th)); L[3].add(m); }
+    L[3].add(haloSprite('#ff9ab0', 1.6)); }
+  // 4: πρωτόνιο με κουάρκ
+  { const shell = new THREE.Mesh(new THREE.SphereGeometry(0.85, 48, 32), fresnelMat('#ff5f7e', { intensity: 1.3, core: 0.04 })); L[4].add(shell);
+    const qs = ['#ff3b3b', '#3bff7a', '#3b8cff'].map(h => { const q = new THREE.Mesh(new THREE.SphereGeometry(0.09, 20, 14), glowMat(h, { intensity: 4, additive: false })); L[4].add(q); return q; });
+    const gl = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.BufferGeometry(), glowMat('#fff3c4', { intensity: 2.4, flow: 6, speed: 1.5 })); L[4].add(m); return m; });
+    L[4].userData = { qs, gl }; }
+  // 5: «έρημος»: εικονικά ζεύγη που εμφανίζονται και χάνονται
+  { const N = 900, p = new Float32Array(N * 3), r = rng(25); for (let i = 0; i < N; i++) p.set([(r() - .5) * 4, (r() - .5) * 3, (r() - .5) * 4], i * 3);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    const m = new THREE.ShaderMaterial({ uniforms: { uTime: U.time, uOpacity: { value: 1 }, uPR: { value: renderer.getPixelRatio() } },
+      vertexShader: `uniform float uTime, uPR; varying float vA; void main(){ vec4 mv = modelViewMatrix*vec4(position,1.0); gl_Position = projectionMatrix*mv;
+        float k = fract(sin(dot(position.xy, vec2(12.9898, 78.233)))*43758.5453); vA = pow(max(0.0, sin(uTime*2.0 + k*40.0)), 8.0); gl_PointSize = 6.0*uPR*(2.0/ -mv.z + 0.3); }`,
+      fragmentShader: `uniform float uOpacity; varying float vA; void main(){ float d = length(gl_PointCoord - .5); float a = smoothstep(.5, 0., d)*vA; gl_FragColor = vec4(vec3(0.75, 0.85, 1.0)*a*2.0, a*uOpacity); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const pts = new THREE.Points(geo, m); pts.frustumCulled = false; L[5].add(pts); }
+  // 6: πλέγμα Planck με Calabi–Yau σε κάθε σημείο (instancing)
+  { const geo = calabiYauGeometry(5, 8, 10, 0.9); const m = cyMat(); m.uniforms.uIntensity.value = 0.22;
+    const n = 4, inst = new THREE.InstancedMesh(geo, m, n * n * n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(); let k = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) for (let l = 0; l < n; l++) { q.setFromEuler(new THREE.Euler(i, j * 1.3, l * .7)); m4.compose(V((i - 1.5) * 1.15, (j - 1.5) * 1.15, (l - 1.5) * 1.15), q, V(.3, .3, .3)); inst.setMatrixAt(k++, m4); }
+    inst.frustumCulled = false; L[6].add(inst);
+    const lat = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(3.45, 3.45, 3.45, 3, 3, 3)), new THREE.LineBasicMaterial({ color: col('#b3fff1'), transparent: true, opacity: 0.25 })); L[6].add(lat); }
+  // 7: μία μεγάλη Calabi–Yau με χορδή
+  { const cy = new THREE.Mesh(calabiYauGeometry(5, 14, 20, 1.1), cyMat()); cy.material.uniforms.uIntensity.value = 0.42; cy.scale.setScalar(0.95); L[7].add(cy);
+    const s = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.012, 8, 260), stringMat('#ffffff', '#ffd37a')); s.material.uniforms.uAmp.value = 0.07; L[7].add(s);
+    L[7].userData = { cy, s }; }
+  LAYERS.forEach((ly, i) => collectMats(L[i]));
+  w.layers = L; w.s = 0;
+  w.update = (t) => {
+    const s = w.s;
+    LAYERS.forEach((ly, i) => {
+      const k = s + ly.e; // λογαριθμική κλίμακα: μέγεθος = 10^k
+      const vis = i === LAYERS.length - 1 ? smooth(-1.1, -0.35, k) : smooth(-1.1, -0.35, k) * (1 - smooth(0.55, 1.25, k));
+      L[i].scale.setScalar(Math.pow(10, clamp(k, -6, 3)));
+      setFade(L[i], vis * w.fade);
+    });
+    const ant = L[1].userData.ant; const a = t * 2.2; ant.position.set(((t * 0.6) % 4) - 2, Math.cos(a) * 0.1, Math.sin(a) * 0.1);
+    L[2].userData.spin.rotation.y = t * 0.1;
+    L[3].rotation.y = t * 0.3; L[3].rotation.x = t * 0.17;
+    const { qs, gl } = L[4].userData;
+    qs.forEach((q, i) => { const ph = t * 0.9 + i * TAU / 3; q.position.set(Math.cos(ph) * 0.4, Math.sin(ph * 1.3) * 0.3, Math.sin(ph) * 0.4); });
+    gl.forEach((m, i) => { const A = qs[i].position, B = qs[(i + 1) % 3].position, mid = A.clone().lerp(B, .5).add(V(Math.sin(t * 3 + i) * .08, Math.cos(t * 2.5 + i) * .08, 0)); m.geometry.dispose(); m.geometry = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(A, mid, B), 20, 0.02, 6, false); });
+    L[6].rotation.y = t * 0.08; L[6].children[0].material.uniforms.uAlpha.value = 0.8 + t * 0.25;
+    const { cy, s: str } = L[7].userData; cy.rotation.y = t * 0.12; cy.rotation.x = 0.4; cy.material.uniforms.uAlpha.value = 0.8 + Math.sin(t * 0.25) * 1.2;
+    str.rotation.set(t * 0.4, t * 0.3, 0); str.position.set(Math.cos(t * 0.5) * 0.9, Math.sin(t * 0.7) * 0.5, Math.sin(t * 0.5) * 0.9);
+  };
+  // ο Καθηγητής ταξιδεύει μαζί με την κάμερα: μένει ίδιος στην οθόνη, ο κόσμος μεγαλώνει
+  const prof = makeProfessor({ main: true }); prof.group.scale.setScalar(0.32); prof.group.position.set(-1.05, -0.95, -2.6); prof.group.rotation.y = Math.PI * 0.82; prof.holo(0.15, '#b3fff1');
+  camera.add(prof.group); collectMats(prof.group); setFade(prof.group, 0); w.prof = prof;
+});
+
+// =====================================================================
+// Λιβάδι με σπίτι (επιπλέον λειτουργία): ουρανός, ήλιος, σύννεφα,
+// γρασίδι, λίμνη, πύλες διαστάσεων και ταξίδι στον χρόνο
+// =====================================================================
+const isSmall = Math.min(window.innerWidth, window.innerHeight) < 700 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const SUN_DAY = V(-0.42, 0.66, -0.62).normalize(), SUN_EVE = V(-0.66, 0.13, -0.74).normalize();
+const MEADOW = { era: 0, eraTarget: 0, sun: SUN_DAY.clone(), player: null, dest: null, heading: 0, near: null, anim: null };
+const HOUSE = { x: -10, z: -10, w: 7, d: 5.5, h: 3.0 };
+const POND = { x: 10, z: 8, r: 3.3 };
+const PLAZA = { x: 8, z: -10, r: 7.2 };
+const YARD = V(-10, 0, -4.2);
+const hash2 = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
+const vnoise2 = (x, z) => { const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi, u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+  const a = hash2(xi, zi), b = hash2(xi + 1, zi), c = hash2(xi, zi + 1), d = hash2(xi + 1, zi + 1); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
+const fbm2js = (x, z) => vnoise2(x, z) * .5 + vnoise2(x * 2.1, z * 2.1) * .25 + vnoise2(x * 4.3, z * 4.3) * .125;
+const groundH = (x, z) => { const r = Math.hypot(x, z), k = smooth(28, 70, r); return k * (2.4 + 2.0 * Math.sin(x * 0.07) * Math.cos(z * 0.06) + 1.4 * Math.sin(x * 0.045 + z * 0.05)); };
+const PATHS = [[[-10, -7.0], [-10, -0.2], [-6.5, 2.2], [-2.5, 4.2], [0, 6]], [[-6.5, 2.2], [-1, -2.5], [PLAZA.x - PLAZA.r + 0.3, PLAZA.z]], [[0, 6], [5, 6.2], [POND.x - POND.r - 0.3, POND.z]]];
+function pathDist(x, z) {
+  let best = 1e9;
+  for (const pl of PATHS) for (let i = 0; i + 1 < pl.length; i++) {
+    const [ax, az] = pl[i], [bx, bz] = pl[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1), px = ax + t * dx - x, pz = az + t * dz - z;
+    best = Math.min(best, Math.hypot(px, pz));
+  }
+  return best;
+}
+const inHouse = (x, z, m = 0) => Math.abs(x - HOUSE.x) < HOUSE.w / 2 + m && Math.abs(z - HOUSE.z) < HOUSE.d / 2 + m;
+const FOG_DENSITY = 0.0088;
+const meadowFog = new THREE.FogExp2(0xbfd6ea, FOG_DENSITY);
+
+function skyMat() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uSun: { value: SUN_DAY.clone() }, uTime: U.time, uEra: { value: 0 }, uOpacity: { value: 1 } },
+    vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix*modelViewMatrix*vec4(position, 1.0); gl_Position = p.xyww; }`,
+    fragmentShader: NOISE + `uniform vec3 uSun; uniform float uTime, uEra, uOpacity; varying vec3 vDir;
+      void main(){
+        vec3 d = normalize(vDir); float h = clamp(d.y, 0.0, 1.0);
+        vec3 zenith = mix(vec3(0.10, 0.30, 0.72), vec3(0.20, 0.22, 0.52), uEra);
+        vec3 horizon = mix(vec3(0.66, 0.80, 0.94), vec3(1.00, 0.66, 0.40), uEra);
+        vec3 col = mix(horizon, zenith, pow(h, 0.42));
+        float mu = max(dot(d, normalize(uSun)), 0.0);
+        vec3 sunTint = mix(vec3(1.0, 0.92, 0.78), vec3(1.0, 0.62, 0.32), uEra);
+        col += sunTint*(pow(mu, 6.0)*0.22 + pow(mu, 48.0)*0.55)*(1.0 + uEra);
+        col += sunTint*vec3(5.0, 4.6, 4.0)*smoothstep(0.99935, 0.99965, mu);
+        // σύννεφα: θόρυβος fbm πάνω σε νοητό επίπεδο σε ύψος
+        if (d.y > 0.0) {
+          vec2 uv = d.xz/(d.y + 0.09)*0.55 + vec2(uTime*0.006, uTime*0.0025);
+          float c = fbm(vec3(uv*1.4, 0.0)); float cov = smoothstep(0.50, 0.76, c);
+          float c2 = fbm(vec3(uv*1.4 + normalize(uSun.xz + 1e-4)*0.08, 0.0));
+          float lit = clamp(0.55 + (c - c2)*4.0, 0.15, 1.15);
+          vec3 shade = mix(vec3(0.56, 0.60, 0.72), vec3(0.62, 0.42, 0.40), uEra);
+          vec3 bright = mix(vec3(1.0, 0.99, 0.97), vec3(1.0, 0.78, 0.55), uEra);
+          vec3 cloud = mix(shade, bright, lit) + sunTint*pow(mu, 12.0)*0.6*cov;
+          col = mix(col, cloud, cov*smoothstep(0.0, 0.16, d.y)*0.95);
+        } else {
+          col = mix(horizon*0.92, vec3(0.30, 0.40, 0.26), smoothstep(0.0, -0.12, d.y));
+        }
+        gl_FragColor = vec4(col, uOpacity); }`,
+    transparent: true, depthWrite: false, side: THREE.BackSide
+  });
+}
+
+function grassMat() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.time, uPlayer: { value: new THREE.Vector3() }, uOpacity: { value: 1 }, uEra: { value: 0 },
+      uFog: { value: new THREE.Color(0xbfd6ea) }, uFogD: { value: FOG_DENSITY }, uSun: { value: SUN_DAY.clone() }, uLight: { value: 1 } },
+    vertexShader: NOISE + `attribute vec3 aOffset; attribute float aH, aRot, aVar;
+      uniform float uTime; uniform vec3 uPlayer; uniform float uFogD; varying float vY, vVar, vFog; varying vec3 vView;
+      void main(){ vec3 p = position; float y = p.y; p.x *= (1.0 - y*0.9); p.y *= aH;
+        float gust = vnoise(vec3(aOffset.xz*0.12 + vec2(uTime*0.35, uTime*0.12), 0.0));
+        float wave = sin(uTime*1.9 + aOffset.x*0.42 + aOffset.z*0.3)*0.35 + gust*0.9;
+        float bend = (0.12 + 0.32*wave)*y*y*aH;
+        vec2 dp = aOffset.xz - uPlayer.xz; float dist = length(dp);
+        vec2 push = dist < 0.9 ? normalize(dp + 1e-4)*(0.9 - dist)*0.9 : vec2(0.0);
+        float c = cos(aRot), s = sin(aRot); vec3 q = vec3(c*p.x, p.y, s*p.x);
+        q.x += bend*0.9 + push.x*y*y; q.z += bend*0.35 + push.y*y*y; q.y -= bend*bend*0.35;
+        vec4 mv = modelViewMatrix*vec4(aOffset + q, 1.0);
+        vY = y; vVar = aVar; vView = normalize(-mv.xyz);
+        float fd = length(mv.xyz)*uFogD; vFog = 1.0 - exp(-fd*fd);
+        gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform float uOpacity, uEra, uLight; uniform vec3 uFog; varying float vY, vVar, vFog; varying vec3 vView;
+      void main(){ vec3 base = vec3(0.07, 0.20, 0.04); vec3 tip = mix(vec3(0.46, 0.68, 0.16), vec3(0.72, 0.62, 0.20), uEra*0.7);
+        vec3 c = mix(base, tip, vY)*(0.72 + 0.56*vVar)*(0.55 + 0.6*vY)*uLight;
+        c = mix(c, uFog, vFog); gl_FragColor = vec4(c, uOpacity); }`,
+    side: THREE.DoubleSide, transparent: true
+  });
+}
+
+function portalMat(hex, seed) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: col(hex) }, uTime: U.time, uOpacity: { value: 1 }, uActive: { value: 0 }, uSeed: { value: seed } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position, 1.0); }`,
+    fragmentShader: NOISE + `uniform vec3 uColor; uniform float uTime, uOpacity, uActive, uSeed; varying vec2 vUv;
+      void main(){ vec2 q = vUv*2.0 - 1.0; float r = length(q); if (r > 1.0) discard; float a = atan(q.y, q.x);
+        float sw = fbm(vec3(cos(a + r*3.0 - uTime*0.9)*1.6 + uSeed, sin(a + r*3.0 - uTime*0.9)*1.6, r*2.0 - uTime*0.3));
+        float core = smoothstep(0.55, 0.0, r);
+        vec3 c = uColor*(0.25 + 1.5*sw*(1.0 - 0.4*r)) + vec3(1.0)*core*0.35*(0.5 + 0.5*uActive) + uColor*smoothstep(0.86, 1.0, r)*2.0*(1.0 + uActive);
+        gl_FragColor = vec4(c*(1.0 + 0.6*uActive), uOpacity*0.92); }`,
+    transparent: true, side: THREE.DoubleSide, depthWrite: false
+  });
+}
+
+const meadow = makeWorld(V(0, 1.2, 4), V(0, 3.6, 11), w => {
+  const root = w.root;
+  // ουρανός
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 48, 32), skyMat()); sky.frustumCulled = false; sky.renderOrder = -1; root.add(sky);
+  // φως ήλιου με σκιές και φως ουρανού
+  const sun = new THREE.DirectionalLight(0xfff1dc, 2.9); sun.castShadow = true;
+  sun.shadow.mapSize.set(isSmall ? 1024 : 2048, isSmall ? 1024 : 2048);
+  Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 140 });
+  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+  root.add(sun, sun.target);
+  const hemi = new THREE.HemisphereLight(0xbcd8ff, 0x4f6b2e, 1.0); root.add(hemi);
+  // έδαφος με λόφους, μονοπάτια και χρωματικές παραλλαγές
+  const gGeo = new THREE.PlaneGeometry(260, 260, 200, 200); gGeo.rotateX(-Math.PI / 2);
+  const gp = gGeo.attributes.position, gc = new Float32Array(gp.count * 3);
+  const cA = col('#3f6e22'), cB = col('#6d9632'), cDirt = col('#8a7552'), cDark = col('#2f5a1e'), tmpC = new THREE.Color();
+  for (let i = 0; i < gp.count; i++) {
+    const x = gp.getX(i), z = gp.getZ(i); gp.setY(i, groundH(x, z));
+    tmpC.copy(cA).lerp(cB, fbm2js(x * 0.08, z * 0.08)).lerp(cDark, smooth(0.55, 0.8, fbm2js(x * 0.25 + 40, z * 0.25)) * 0.5);
+    const pd = pathDist(x, z); tmpC.lerp(cDirt, 1 - smooth(0.7, 1.25, pd));
+    if (inHouse(x, z, 1.2)) tmpC.lerp(cDirt, 0.35);
+    gc.set([tmpC.r, tmpC.g, tmpC.b], i * 3);
+  }
+  gGeo.setAttribute('color', new THREE.BufferAttribute(gc, 3)); gGeo.computeVertexNormals();
+  const ground = new THREE.Mesh(gGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 }));
+  ground.receiveShadow = true; root.add(ground); w.ground = ground;
+  // μακρινά βουνά με «ατμοσφαιρική» απόχρωση
+  { const segs = 320, pos = [], hv = [], idx = [];
+    for (let i = 0; i <= segs; i++) { const a = i / segs * TAU, ca = Math.cos(a), sa = Math.sin(a);
+      const h = 14 + 46 * fbm2js(ca * 2.6 + 11, sa * 2.6 + 7) + 30 * Math.pow(fbm2js(ca * 6 + 3, sa * 6 + 5), 2);
+      pos.push(ca * 175, -4, sa * 175, ca * 250, h, sa * 250); hv.push(0, h / 80); }
+    for (let i = 0; i < segs; i++) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); mg.setAttribute('aH', new THREE.Float32BufferAttribute(hv, 1)); mg.setIndex(idx);
+    const mm = new THREE.ShaderMaterial({ uniforms: { uHorizon: { value: new THREE.Color(0xbfd6ea) }, uOpacity: { value: 1 }, uEra: { value: 0 } },
+      vertexShader: `attribute float aH; varying float vH; varying vec3 vW; void main(){ vH = aH; vec4 wp = modelMatrix*vec4(position, 1.0); vW = wp.xyz; gl_Position = projectionMatrix*viewMatrix*wp; }`,
+      fragmentShader: NOISE + `uniform vec3 uHorizon; uniform float uOpacity, uEra; varying float vH; varying vec3 vW;
+        void main(){ float n = fbm(vW*0.03); vec3 rock = mix(vec3(0.30, 0.40, 0.46), vec3(0.42, 0.36, 0.40), uEra); vec3 c = rock*(0.75 + 0.5*n);
+          c = mix(c, vec3(0.92, 0.94, 0.98), smoothstep(0.62, 0.8, vH + n*0.15)*0.8);
+          c = mix(c, uHorizon, 0.42 + 0.3*(1.0 - clamp(vH*1.6, 0.0, 1.0))); gl_FragColor = vec4(c, uOpacity); }`,
+      side: THREE.DoubleSide, transparent: true });
+    const mtn = new THREE.Mesh(mg, mm); mtn.frustumCulled = false; root.add(mtn); w.mtn = mtn; }
+  // πλατεία με χαραγμένο υπερκύβο
+  { const c = document.createElement('canvas'); c.width = c.height = 1024; const g = c.getContext('2d');
+    g.fillStyle = '#bdb5a7'; g.fillRect(0, 0, 1024, 1024);
+    for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(${90 + Math.random() * 60},${85 + Math.random() * 55},${75 + Math.random() * 50},${0.06 + Math.random() * 0.1})`; g.fillRect(Math.random() * 1024, Math.random() * 1024, 4 + Math.random() * 30, 4 + Math.random() * 30); }
+    g.strokeStyle = 'rgba(70,60,52,.45)'; g.lineWidth = 3;
+    for (let r = 120; r < 512; r += 96) { g.beginPath(); g.arc(512, 512, r, 0, TAU); g.stroke(); }
+    g.strokeStyle = 'rgba(60,70,120,.55)'; g.lineWidth = 7;
+    const S1 = 230, S2 = 120; g.strokeRect(512 - S1, 512 - S1, 2 * S1, 2 * S1); g.strokeRect(512 - S2, 512 - S2, 2 * S2, 2 * S2);
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { g.beginPath(); g.moveTo(512 + sx * S1, 512 + sy * S1); g.lineTo(512 + sx * S2, 512 + sy * S2); g.stroke(); }
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const plaza = new THREE.Mesh(new THREE.CircleGeometry(PLAZA.r, 72), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+    plaza.rotation.x = -Math.PI / 2; plaza.position.set(PLAZA.x, 0.03, PLAZA.z); plaza.receiveShadow = true; root.add(plaza); }
+  // γρασίδι: χιλιάδες λεπίδες με instancing, λυγίζουν στον vertex shader
+  { const blade = new THREE.PlaneGeometry(0.075, 1, 1, 4); blade.translate(0, 0.5, 0);
+    const ig = new THREE.InstancedBufferGeometry(); ig.index = blade.index; ig.setAttribute('position', blade.attributes.position); ig.setAttribute('uv', blade.attributes.uv);
+    const N = isSmall ? 15000 : 48000, off = [], hh = [], rot = [], vr = [], r = rng(77);
+    let n = 0, guard = 0;
+    while (n < N && guard++ < N * 6) {
+      const rr = 38 * Math.sqrt(r()), th = r() * TAU, x = Math.cos(th) * rr, z = Math.sin(th) * rr;
+      if (inHouse(x, z, 0.5) || Math.hypot(x - POND.x, z - POND.z) < POND.r + 0.25 || Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r - 0.2) continue;
+      const pd = pathDist(x, z); if (pd < 0.85 && r() > 0.12) continue;
+      off.push(x, groundH(x, z), z); hh.push((0.35 + r() * 0.55) * (pd < 1.3 ? 0.6 : 1)); rot.push(r() * TAU); vr.push(r()); n++;
+    }
+    ig.setAttribute('aOffset', new THREE.InstancedBufferAttribute(new Float32Array(off), 3));
+    ig.setAttribute('aH', new THREE.InstancedBufferAttribute(new Float32Array(hh), 1));
+    ig.setAttribute('aRot', new THREE.InstancedBufferAttribute(new Float32Array(rot), 1));
+    ig.setAttribute('aVar', new THREE.InstancedBufferAttribute(new Float32Array(vr), 1));
+    ig.instanceCount = n;
+    const grass = new THREE.Mesh(ig, grassMat()); grass.frustumCulled = false; root.add(grass); w.grass = grass; }
+  // λουλούδια
+  { const N = isSmall ? 1400 : 3600, p = [], cc = [], r = rng(9), pal = ['#ffffff', '#ffe14d', '#c77dff', '#ff7aa8', '#ff5d5d', '#7fb2ff'];
+    for (let i = 0; i < N; i++) { const rr = 34 * Math.sqrt(r()), th = r() * TAU, x = Math.cos(th) * rr, z = Math.sin(th) * rr;
+      if (inHouse(x, z, 0.8) || Math.hypot(x - POND.x, z - POND.z) < POND.r + 0.4 || Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r || pathDist(x, z) < 1.1) continue;
+      p.push(x, groundH(x, z) + 0.28 + r() * 0.25, z); const k = col(pal[Math.floor(r() * pal.length)]); cc.push(k.r, k.g, k.b); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); geo.setAttribute('aCol', new THREE.Float32BufferAttribute(cc, 3));
+    const fl = new THREE.Points(geo, new THREE.ShaderMaterial({
+      uniforms: { uOpacity: { value: 1 }, uPR: { value: renderer.getPixelRatio() }, uFog: { value: new THREE.Color(0xbfd6ea) }, uFogD: { value: FOG_DENSITY } },
+      vertexShader: `attribute vec3 aCol; uniform float uPR, uFogD; varying vec3 vC; varying float vFog; void main(){ vec4 mv = modelViewMatrix*vec4(position, 1.0); gl_Position = projectionMatrix*mv; gl_PointSize = 70.0*uPR/ -mv.z; vC = aCol; float fd = length(mv.xyz)*uFogD; vFog = 1.0 - exp(-fd*fd); }`,
+      fragmentShader: `uniform float uOpacity; uniform vec3 uFog; varying vec3 vC; varying float vFog;
+        void main(){ vec2 q = gl_PointCoord - 0.5; float r = length(q)*2.0; float a = atan(q.y, q.x); float pet = 0.55 + 0.45*cos(5.0*a);
+          if (r > pet) discard; vec3 c = r < 0.28 ? vec3(1.0, 0.82, 0.25) : vC*(0.75 + 0.25*(1.0 - r)); gl_FragColor = vec4(mix(c*0.85, uFog, vFog), uOpacity); }`,
+      transparent: true }));
+    fl.frustumCulled = false; root.add(fl); }
+  // δέντρα
+  const trees = [];
+  { const r = rng(31), trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2e, roughness: 0.95 });
+    const greens = ['#3d7a2a', '#4f8f32', '#2f6a25', '#5c9a35'].map(h => new THREE.MeshStandardMaterial({ color: col(h), roughness: 0.85, flatShading: true }));
+    const spots = [];
+    for (let i = 0; i < 26; i++) { const a = r() * TAU, rr = 19 + r() * 16; spots.push([Math.cos(a) * rr, Math.sin(a) * rr]); }
+    spots.push([HOUSE.x - 5.5, HOUSE.z - 3.5], [HOUSE.x + 4.8, HOUSE.z - 4.2], [HOUSE.x - 6.5, HOUSE.z + 3], [POND.x + 5, POND.z - 1.5], [POND.x - 1, POND.z + 5]);
+    for (const [x, z] of spots) {
+      if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + 2.5 || pathDist(x, z) < 2) continue;
+      const t = new THREE.Group(); t.position.set(x, groundH(x, z), z);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.27, 2.6, 8), trunkMat); trunk.position.y = 1.3; trunk.castShadow = true; t.add(trunk);
+      const crown = new THREE.Group(); crown.position.y = 2.7; t.add(crown);
+      const k = 4 + Math.floor(r() * 3);
+      for (let j = 0; j < k; j++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9 + r() * 0.7, 1), greens[Math.floor(r() * greens.length)]);
+        m.position.set((r() - .5) * 1.6, r() * 1.3, (r() - .5) * 1.6); m.castShadow = true; m.receiveShadow = true; crown.add(m); }
+      const sc = 0.85 + r() * 0.5; t.scale.setScalar(sc); t.userData = { sc, ph: r() * TAU }; root.add(t); trees.push(t);
+    } }
+  // σπίτι
+  const house = new THREE.Group(); house.position.set(HOUSE.x, 0, HOUSE.z); root.add(house);
+  const canvasTex = (w2, h2, draw, rep = [1, 1]) => { const c = document.createElement('canvas'); c.width = w2; c.height = h2; draw(c.getContext('2d'), w2, h2); const t2 = new THREE.CanvasTexture(c); t2.colorSpace = THREE.SRGBColorSpace; t2.wrapS = t2.wrapT = THREE.RepeatWrapping; t2.repeat.set(rep[0], rep[1]); t2.anisotropy = 8; return t2; };
+  const plaster = canvasTex(512, 512, (g, W2, H2) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, W2, H2); for (let i = 0; i < 9000; i++) { const v = 215 + Math.random() * 40; g.fillStyle = `rgba(${v},${v - 4},${v - 12},0.35)`; g.fillRect(Math.random() * W2, Math.random() * H2, 2 + Math.random() * 6, 2 + Math.random() * 6); } }, [2, 1]);
+  const tiles = canvasTex(512, 512, (g, W2, H2) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, W2, H2); const rows = 12, cols = 10;
+    for (let r = 0; r < rows; r++) for (let c2 = 0; c2 < cols + 1; c2++) { const x = (c2 + (r % 2) * 0.5) * W2 / cols, y = r * H2 / rows, v = 175 + Math.random() * 70;
+      g.fillStyle = `rgb(${v},${v * 0.86},${v * 0.8})`; g.beginPath(); g.roundRect(x - W2 / cols / 2 + 2, y + 2, W2 / cols - 4, H2 / rows - 3, [0, 0, 12, 12]); g.fill();
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x - W2 / cols / 2 + 2, y + H2 / rows - 6, W2 / cols - 4, 4); } }, [0.6, 0.6]);
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xead9b9, roughness: 0.9, map: plaster });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0xa5492f, roughness: 0.75, map: tiles });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xf6f2ea, roughness: 0.6 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b3f22, roughness: 0.7 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x2a3a48, roughness: 0.15, metalness: 0.3, emissive: 0xffc27a, emissiveIntensity: 0.12 });
+  const add = (geo, mat, x, y, z, cast = true) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = cast; m.receiveShadow = true; house.add(m); return m; };
+  add(new THREE.BoxGeometry(HOUSE.w, HOUSE.h, HOUSE.d), wallMat, 0, HOUSE.h / 2, 0);
+  { const sh = new THREE.Shape(); sh.moveTo(-HOUSE.w / 2 - 0.45, 0); sh.lineTo(HOUSE.w / 2 + 0.45, 0); sh.lineTo(0, 2.1); sh.lineTo(-HOUSE.w / 2 - 0.45, 0);
+    const rg = new THREE.ExtrudeGeometry(sh, { depth: HOUSE.d + 0.7, bevelEnabled: false }); rg.translate(0, 0, -(HOUSE.d + 0.7) / 2);
+    add(rg, roofMat, 0, HOUSE.h, 0); }
+  add(new THREE.BoxGeometry(0.62, 1.7, 0.62), new THREE.MeshStandardMaterial({ color: 0x8e5040, roughness: 0.9 }), 1.8, HOUSE.h + 1.5, -0.6);
+  add(new THREE.BoxGeometry(1.15, 2.15, 0.1), woodMat, 0, 1.075, HOUSE.d / 2 + 0.03);
+  add(new THREE.SphereGeometry(0.05, 12, 8), new THREE.MeshStandardMaterial({ color: 0xd4b04a, metalness: 0.9, roughness: 0.3 }), 0.4, 1.05, HOUSE.d / 2 + 0.11, false);
+  add(new THREE.BoxGeometry(1.8, 0.2, 1.0), trimMat, 0, 0.1, HOUSE.d / 2 + 0.5);
+  for (const [x, y] of [[-2.2, 1.65], [2.2, 1.65]]) { add(new THREE.BoxGeometry(1.2, 1.0, 0.08), glassMat, x, y, HOUSE.d / 2 + 0.02, false);
+    add(new THREE.BoxGeometry(1.36, 0.08, 0.12), trimMat, x, y - 0.54, HOUSE.d / 2 + 0.05); add(new THREE.BoxGeometry(0.06, 1.0, 0.1), trimMat, x, y, HOUSE.d / 2 + 0.06); }
+  for (const z of [-1.2, 1.2]) add(new THREE.BoxGeometry(0.08, 1.0, 1.1), glassMat, HOUSE.w / 2 + 0.02, 1.65, z, false);
+  // φράχτης αυλής
+  { const fenceMat = new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: 0.7 }); w.fenceMat = fenceMat;
+    const yard = [[-4.6, 2.75], [-4.6, 9.2], [4.6, 9.2], [4.6, 2.75]];
+    for (let s2 = 0; s2 < yard.length - 1; s2++) { const [ax, az] = yard[s2], [bx, bz] = yard[s2 + 1], L = Math.hypot(bx - ax, bz - az), nP = Math.round(L / 0.8);
+      for (let i = 0; i <= nP; i++) { const u = i / nP, x = lerp(ax, bx, u), z = lerp(az, bz, u); if (s2 === 1 && Math.abs(x) < 0.9) continue; add(new THREE.BoxGeometry(0.09, 0.9, 0.09), fenceMat, x, 0.45, z); }
+      for (const y of [0.35, 0.7]) { const mx = (ax + bx) / 2, mz = (az + bz) / 2; const rail = add(new THREE.BoxGeometry(L, 0.06, 0.04), fenceMat, mx, y, mz); rail.rotation.y = -Math.atan2(bz - az, bx - ax); if (s2 === 1) { rail.scale.x = 0.42; rail.position.x = -2.7; const r2 = rail.clone(); r2.position.x = 2.7; house.add(r2); } } } }
+  // καπνός από την καμινάδα (σωματίδια στον shader)
+  { const N = 70, p = new Float32Array(N * 3), ph = new Float32Array(N), r = rng(5);
+    for (let i = 0; i < N; i++) { p.set([(r() - .5) * 0.3, 0, (r() - .5) * 0.3], i * 3); ph[i] = r(); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1));
+    const smoke = new THREE.Points(g, new THREE.ShaderMaterial({
+      uniforms: { uTime: U.time, uOpacity: { value: 1 }, uPR: { value: renderer.getPixelRatio() } },
+      vertexShader: `attribute float aPh; uniform float uTime, uPR; varying float vK; void main(){ float k = fract(aPh + uTime*0.09); vec3 p = position*(1.0 + k*6.0) + vec3(k*2.2 + sin(k*6.0 + aPh*20.0)*0.3, k*7.0, k*0.8);
+        vec4 mv = modelViewMatrix*vec4(p, 1.0); gl_Position = projectionMatrix*mv; gl_PointSize = (120.0 + 380.0*k)*uPR/ -mv.z; vK = k; }`,
+      fragmentShader: `uniform float uOpacity; varying float vK; void main(){ float d = length(gl_PointCoord - 0.5)*2.0; float a = smoothstep(1.0, 0.2, d)*(1.0 - vK)*smoothstep(0.0, 0.08, vK)*0.35;
+        gl_FragColor = vec4(vec3(0.86, 0.86, 0.88), a*uOpacity); }`,
+      transparent: true, depthWrite: false }));
+    smoke.position.set(1.8, HOUSE.h + 2.4, -0.6); smoke.frustumCulled = false; house.add(smoke); }
+  house.rotation.y = 0;
+  w.house = { group: house, wallMat, roofMat, glassMat };
+  // λίμνη
+  { const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 72), new THREE.ShaderMaterial({
+      uniforms: { uTime: U.time, uSun: { value: SUN_DAY.clone() }, uOpacity: { value: 1 }, uEra: { value: 0 } },
+      vertexShader: `varying vec3 vW; void main(){ vec4 wp = modelMatrix*vec4(position, 1.0); vW = wp.xyz; gl_Position = projectionMatrix*viewMatrix*wp; }`,
+      fragmentShader: NOISE + `uniform float uTime, uOpacity, uEra; uniform vec3 uSun; varying vec3 vW;
+        void main(){ vec2 p = vW.xz*1.6; float e = 0.06;
+          float h0 = vnoise(vec3(p, uTime*0.5)), hx = vnoise(vec3(p + vec2(e, 0.0), uTime*0.5)), hz = vnoise(vec3(p + vec2(0.0, e), uTime*0.5));
+          vec3 n = normalize(vec3((h0 - hx)*0.9, 1.0, (h0 - hz)*0.9));
+          vec3 V = normalize(cameraPosition - vW); float fres = 0.08 + 0.92*pow(1.0 - max(dot(n, V), 0.0), 4.0);
+          vec3 R = reflect(-V, n);
+          vec3 sky = mix(mix(vec3(0.66, 0.80, 0.94), vec3(1.0, 0.66, 0.40), uEra), mix(vec3(0.10, 0.30, 0.72), vec3(0.20, 0.22, 0.52), uEra), clamp(R.y*1.4, 0.0, 1.0));
+          vec3 deep = vec3(0.04, 0.16, 0.18);
+          float spec = pow(max(dot(R, normalize(uSun)), 0.0), 220.0)*3.0;
+          gl_FragColor = vec4(mix(deep, sky, fres) + vec3(1.0, 0.9, 0.7)*spec, uOpacity); }`,
+      transparent: true }));
+    water.rotation.x = -Math.PI / 2; water.position.set(POND.x, 0.05, POND.z); root.add(water); w.water = water;
+    const rimRing = new THREE.Mesh(new THREE.TorusGeometry(POND.r + 0.1, 0.22, 8, 64), new THREE.MeshStandardMaterial({ color: 0x9a948a, roughness: 0.95, flatShading: true }));
+    rimRing.rotation.x = -Math.PI / 2; rimRing.position.set(POND.x, 0.04, POND.z); rimRing.receiveShadow = true; root.add(rimRing); }
+  // πεταλούδες
+  const butterflies = [];
+  { const r = rng(12), wing = new THREE.PlaneGeometry(0.16, 0.12); wing.translate(0.08, 0, 0);
+    for (let i = 0; i < 12; i++) { const m = new THREE.MeshBasicMaterial({ color: col(['#ffd23f', '#ff7aa8', '#7fb2ff', '#ffffff'][i % 4]), side: THREE.DoubleSide, transparent: true });
+      const b = new THREE.Group(), L = new THREE.Mesh(wing, m), R = new THREE.Mesh(wing, m); R.scale.x = -1; b.add(L, R);
+      b.userData = { L, R, c: V((r() - .5) * 30, 0, (r() - .5) * 30), ph: r() * TAU, sp: 0.4 + r() * 0.4 }; root.add(b); butterflies.push(b); } }
+  // πύλες
+  const stone = new THREE.MeshStandardMaterial({ color: 0x8f8a83, roughness: 0.92 });
+  const gates = [];
+  const makeGate = (hex, html, kind, extra, pos, faceTo, frameMat = stone) => {
+    const g = new THREE.Group(); g.position.copy(pos); g.position.y = groundH(pos.x, pos.z);
+    for (const sx of [-1.2, 1.2]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.34, 2.9, 0.34), frameMat); p.position.set(sx, 1.45, 0); p.castShadow = true; p.receiveShadow = true; g.add(p); }
+    const lint = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.34, 0.42), frameMat); lint.position.y = 3.0; lint.castShadow = true; g.add(lint);
+    const pm = portalMat(hex, gates.length * 3.7);
+    const disk = new THREE.Mesh(new THREE.CircleGeometry(1.02, 64), pm); disk.position.y = 1.45; g.add(disk);
+    const rimG = new THREE.Mesh(new THREE.TorusGeometry(1.04, 0.045, 8, 64), glowMat(hex, { intensity: 2.2, additive: false })); rimG.position.y = 1.45; g.add(rimG);
+    const lab = makeLabel(html, { color: hex, size: 0.3, html: true, cls: 'gate' }); lab.position.y = 3.65; g.add(lab);
+    g.lookAt(faceTo.x, g.position.y, faceTo.z);
+    g.userData = { kind, ...extra, disk, pm, hex, front: null, lab };
+    const front = V(0, 0, 1.6).applyQuaternion(g.quaternion).add(g.position); g.userData.front = front;
+    root.add(g); gates.push(g); return g;
+  };
+  DIMS.forEach((d, i) => {
+    const a = Math.PI / 2 + (i / DIMS.length) * TAU + 0.26;
+    const pos = V(PLAZA.x + Math.cos(a) * 6.0, 0, PLAZA.z + Math.sin(a) * 6.0);
+    makeGate(d.color, `<b>${i}</b> ${d.name}`, 'dim', { d: i }, pos, V(PLAZA.x, 0, PLAZA.z));
+  });
+  const metalF = new THREE.MeshStandardMaterial({ color: 0x9aa0b4, metalness: 0.85, roughness: 0.3 });
+  const goldF = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35 });
+  makeGate('#e07bff', 'Ασανσέρ 4D', 'elevator', {}, V(-4.6, 0, 3.4), V(0, 0, 8), metalF);
+  makeGate('#b3fff1', 'Γίνε μικρός', 'zoom', {}, V(5.6, 0, 4.0), V(0, 0, 8), metalF);
+  makeGate('#ffc35e', 'Ταξίδι στον χρόνο', 'time', {}, V(-4.4, 0, -1.6), V(0, 0, 4), goldF);
+  w.gates = gates;
+  // ο Καθηγητής (τον κινεί ο χρήστης) και ο μικρός Καθηγητής του παρελθόντος
+  const prof = makeProfessor({ main: true }); prof.shadows(true); prof.group.position.set(0, 0, 6); prof.group.rotation.y = Math.PI; root.add(prof.group);
+  MEADOW.player = prof; w.prof = prof;
+  const kid = makeProfessor({ shirt: 0xd33c3c, jeans: 0x4a77b3, glasses: false, satchel: false, build: 'slim', head: 1.32, hair: 'short', hairColor: 0x5b3a20, beard: 'none', collar: 0xf2f2f2 });
+  kid.shadows(true); kid.group.scale.setScalar(0.001); root.add(kid.group);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 14), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, emissive: 0x330000 }));
+  ball.castShadow = true; root.add(ball);
+  const kidSay = makeLabel('Ποιος είσαι εσύ;', { color: '#ffffff', size: 0.24, cls: 'bubble' }); kidSay.position.y = 2.25; kid.group.add(kidSay);
+  const profSay = makeLabel('Εσύ, σε 40 χρόνια!', { color: '#ffffff', size: 0.24, cls: 'bubble' }); profSay.position.y = 2.35; prof.group.add(profSay);
+  w.kid = kid; w.ball = ball; w.kidSay = kidSay; w.profSay = profSay;
+  // ρολόι γύρω από τον Καθηγητή όταν ταξιδεύει στον χρόνο
+  const clock = new THREE.Group(); root.add(clock);
+  { const cm = glowMat('#ffc35e', { intensity: 2.6, additive: false });
+    clock.add(new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.025, 8, 96), cm));
+    for (let i = 0; i < 12; i++) { const tk = new THREE.Mesh(new THREE.BoxGeometry(0.05, i % 3 ? 0.14 : 0.26, 0.03), cm); const a = i / 12 * TAU; tk.position.set(Math.sin(a) * 1.36, Math.cos(a) * 1.36, 0); tk.rotation.z = -a; clock.add(tk); }
+    const hh = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.03), cm); hh.geometry.translate(0, 0.37, 0); clock.add(hh);
+    const mh = new THREE.Mesh(new THREE.BoxGeometry(0.035, 1.1, 0.03), cm); mh.geometry.translate(0, 0.55, 0); clock.add(mh);
+    clock.userData = { hh, mh }; }
+  w.clock = clock;
+
+  const eraColor = { wall: [col('#ead9b9'), col('#fff3dc')], roof: [col('#a5492f'), col('#c75a3c')], fence: [col('#d9d4c8'), col('#ffffff')],
+    fog: [col('#bfd6ea'), col('#f2b98a')], sunC: [col('#fff1dc'), col('#ffb070')], hemiS: [col('#bcd8ff'), col('#ffc9a0')] };
+  const tmp = new THREE.Color();
+  w.update = (t, dt) => {
+    const e = MEADOW.era, fade = w.fade;
+    MEADOW.sun.copy(SUN_DAY).lerp(SUN_EVE, e).normalize();
+    sky.material.uniforms.uSun.value.copy(MEADOW.sun); sky.material.uniforms.uEra.value = e;
+    w.water.material.uniforms.uSun.value.copy(MEADOW.sun); w.water.material.uniforms.uEra.value = e;
+    const P = prof.group.position;
+    sun.position.copy(P).addScaledVector(MEADOW.sun, 60); sun.target.position.copy(P);
+    sun.color.copy(eraColor.sunC[0]).lerp(eraColor.sunC[1], e); sun.intensity = lerp(2.9, 2.2, e) * fade;
+    hemi.color.copy(eraColor.hemiS[0]).lerp(eraColor.hemiS[1], e); hemi.intensity = lerp(1.0, 0.75, e) * fade;
+    tmp.copy(eraColor.fog[0]).lerp(eraColor.fog[1], e); meadowFog.color.copy(tmp); w.mtn.material.uniforms.uHorizon.value.copy(tmp); w.mtn.material.uniforms.uEra.value = e;
+    const gm = w.grass.material.uniforms; gm.uPlayer.value.copy(P); gm.uEra.value = e; gm.uFog.value.copy(tmp); gm.uLight.value = lerp(1, 0.85, e);
+    w.house.wallMat.color.copy(eraColor.wall[0]).lerp(eraColor.wall[1], e); w.house.roofMat.color.copy(eraColor.roof[0]).lerp(eraColor.roof[1], e);
+    w.fenceMat.color.copy(eraColor.fence[0]).lerp(eraColor.fence[1], e); w.house.glassMat.emissiveIntensity = lerp(0.12, 0.6, e);
+    for (const tr of trees) { const s = tr.userData.sc * lerp(1, 0.5, e); tr.scale.setScalar(s); tr.rotation.z = Math.sin(t * 0.8 + tr.userData.ph) * 0.012; }
+    for (const b of butterflies) { const u = b.userData, a = t * u.sp + u.ph; b.position.set(u.c.x + Math.cos(a) * 3 + Math.sin(a * 2.3) * 0.8, 0.8 + Math.sin(a * 3.1) * 0.4 + 0.5, u.c.z + Math.sin(a) * 3);
+      b.rotation.y = -a; const f = Math.sin(t * 22 + u.ph) * 1.1; u.L.rotation.y = f; u.R.rotation.y = -f; }
+    // πύλες: ποια είναι κοντά
+    let near = null, nd = 2.6;
+    for (const g of gates) { const d = Math.hypot(P.x - g.userData.front.x, P.z - g.userData.front.z); if (d < nd) { nd = d; near = g; } }
+    for (const g of gates) { g.userData.pm.uniforms.uActive.value = g === near ? 1 : 0;
+      const dc = camera.position.distanceTo(g.position), lab = g.userData.lab; lab.visible = dc < 15; lab.element.style.opacity = (fade * (1 - smooth(9, 15, dc))).toFixed(2); }
+    MEADOW.near = state.mode === 'meadow' ? near : null;
+    // μικρός Καθηγητής: εμφανίζεται μόνο στο παρελθόν
+    const kidOn = smooth(0.82, 0.98, e);
+    const dAdult = Math.hypot(P.x - kid.group.position.x, P.z - kid.group.position.z);
+    const meet = kidOn > 0.5 && dAdult < 3.4;
+    if (!meet) { const a = t * 1.3; kid.group.position.set(YARD.x + Math.cos(a) * 1.7, 0, YARD.z + Math.sin(a) * 1.3); kid.group.rotation.y = -a; kid.walk(t * 1.4, 1); }
+    else { kid.group.rotation.y = Math.atan2(P.x - kid.group.position.x, P.z - kid.group.position.z); kid.walk(t, 0); }
+    kid.group.scale.setScalar(Math.max(0.001, 0.6 * kidOn)); kid.group.visible = kidOn > 0.01;
+    ball.visible = kidOn > 0.01; const bt = t * 1.3 + 0.6; ball.position.set(YARD.x + Math.cos(bt) * 1.2, 0.16 + Math.abs(Math.sin(t * 4.2)) * 0.5, YARD.z + Math.sin(bt) * 0.9);
+    w.kidSay.visible = meet; w.profSay.visible = meet; w.met = meet;
+    // ρολόι
+    const an = MEADOW.anim; const ca = an ? Math.sin(Math.PI * clamp(an.u, 0, 1)) : 0;
+    clock.visible = ca > 0.01; clock.position.copy(P).add(V(0, 1.2, 0)); clock.quaternion.copy(camera.quaternion);
+    clock.scale.setScalar(0.6 + ca * 0.6);
+    clock.userData.hh.rotation.z = t * (an ? 6 : 0.1) * (an && an.dir < 0 ? -1 : 1); clock.userData.mh.rotation.z = t * (an ? 30 : 1) * (an && an.dir < 0 ? -1 : 1);
+  };
+});
+meadow.setFocal = (p) => { meadow.group.position.copy(p); meadow.root.position.copy(p).multiplyScalar(-1); meadow.focal.copy(p); };
+
+// μετακίνηση στο λιβάδι
+const keys = new Set();
+window.addEventListener('keydown', e => { if (!e.target.closest || !e.target.closest('input')) keys.add(e.code); });
+window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
+const joy = { x: 0, y: 0, active: false };
+const raycaster = new THREE.Raycaster();
+function meadowMove(dt) {
+  const prof = MEADOW.player, P = prof.group.position;
+  let ix = 0, iz = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) iz -= 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) iz += 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) ix -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) ix += 1;
+  if (joy.active) { ix += joy.x; iz += joy.y; }
+  const dir = new THREE.Vector3();
+  if (Math.hypot(ix, iz) > 0.08) {
+    const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+    const right = new THREE.Vector3().crossVectors(fwd, V(0, 1, 0));
+    dir.addScaledVector(fwd, -iz).addScaledVector(right, ix); MEADOW.dest = null;
+  } else if (MEADOW.dest) {
+    dir.subVectors(MEADOW.dest, P); dir.y = 0;
+    if (dir.length() < 0.2) { MEADOW.dest = null; dir.set(0, 0, 0); }
+  }
+  const prev = P.clone();
+  let moving = 0;
+  if (dir.lengthSq() > 1e-6) {
+    const amt = Math.min(1, dir.length()); dir.normalize();
+    const speed = (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 6.2 : 3.2) * (joy.active ? Math.min(1, Math.hypot(joy.x, joy.y)) : 1);
+    P.addScaledVector(dir, speed * dt);
+    // εμπόδια: σπίτι, λίμνη, όρια
+    if (inHouse(P.x, P.z, 0.45)) { const dx = P.x - HOUSE.x, dz = P.z - HOUSE.z, px = HOUSE.w / 2 + 0.45 - Math.abs(dx), pz = HOUSE.d / 2 + 0.45 - Math.abs(dz); if (px < pz) P.x += Math.sign(dx) * px; else P.z += Math.sign(dz) * pz; }
+    const dp = Math.hypot(P.x - POND.x, P.z - POND.z); if (dp < POND.r + 0.35) { P.x = POND.x + (P.x - POND.x) / dp * (POND.r + 0.35); P.z = POND.z + (P.z - POND.z) / dp * (POND.r + 0.35); }
+    const rr = Math.hypot(P.x, P.z); if (rr > 34) { P.x *= 34 / rr; P.z *= 34 / rr; }
+    const target = Math.atan2(dir.x, dir.z);
+    let dh = target - MEADOW.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); MEADOW.heading += dh * Math.min(1, dt * 10);
+    moving = speed > 4 ? 1.3 : 1;
+  }
+  P.y = groundH(P.x, P.z);
+  prof.group.rotation.y = MEADOW.heading; prof.walk(clock0 * (moving > 1 ? 1.5 : 1), moving);
+  // η κάμερα ακολουθεί
+  const delta = P.clone().sub(prev); camera.position.add(delta);
+  controls.target.set(P.x, P.y + 1.3, P.z);
+}
+// κλικ στο έδαφος ή σε πύλη
+let downAt = null;
+canvas.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+canvas.addEventListener('pointerup', e => {
+  if (!downAt || (state.mode !== 'meadow' && state.mode !== 'time')) return;
+  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y), dtc = performance.now() - downAt.t; downAt = null;
+  if (moved > 7 || dtc > 450) return;
+  const ndc = new THREE.Vector2(e.clientX / window.innerWidth * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hitG = raycaster.intersectObjects(meadow.gates.map(g => g.userData.disk), false)[0];
+  if (hitG) { const g = meadow.gates.find(x => x.userData.disk === hitG.object); MEADOW.dest = g.userData.front.clone(); return; }
+  const hit = raycaster.intersectObject(meadow.ground, false)[0];
+  if (hit) MEADOW.dest = hit.point.clone();
+});
+// joystick για οθόνες αφής
+{
+  const pad = document.getElementById('joy'), knob = pad.querySelector('.knob');
+  let id = null;
+  const upd = e => { const r = pad.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2; let dx = (e.clientX - cx) / (r.width / 2), dy = (e.clientY - cy) / (r.height / 2); const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } joy.x = dx; joy.y = dy; knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`; };
+  pad.addEventListener('pointerdown', e => { id = e.pointerId; pad.setPointerCapture(id); joy.active = true; upd(e); e.stopPropagation(); });
+  pad.addEventListener('pointermove', e => { if (e.pointerId === id) upd(e); });
+  const end = e => { if (e.pointerId !== id) return; id = null; joy.active = false; joy.x = joy.y = 0; knob.style.transform = ''; };
+  pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+}
+
+// =====================================================================
+// Μετα-επεξεργασία: bloom + «warp» στις μεταβάσεις
+// =====================================================================
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+labelRenderer.domElement.className = 'labels';
+document.body.insertBefore(labelRenderer.domElement, document.querySelector('.topbar'));
+// Αλυσίδα postprocessing (pmndrs): MSAA, ακτίνες ήλιου, bloom, warp μεταβάσεων, βινιέτα, κόκκος, τόνοι ACES
+const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: isSmall ? 2 : 4 });
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+// ακτίνες φωτός από τον ήλιο του λιβαδιού (ενεργές μόνο εκεί)
+const godSun = new THREE.Mesh(new THREE.SphereGeometry(16, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, depthWrite: false, fog: false }));
+godSun.frustumCulled = false; meadow.root.add(godSun);
+const godRays = new GodRaysEffect(camera, godSun, { height: 480, kernelSize: KernelSize.SMALL, density: 0.96, decay: 0.93, weight: 0.32, exposure: 0.55, samples: 48, clampMax: 1.0 });
+const godPass = new EffectPass(camera, godRays); godPass.enabled = false; composer.addPass(godPass);
+// bloom με mipmap blur
+const bloom = new BloomEffect({ mipmapBlur: true, intensity: 1.2, luminanceThreshold: 0.52, luminanceSmoothing: 0.22, radius: 0.72 });
+composer.addPass(new EffectPass(camera, bloom));
+// warp των μεταβάσεων: ακτινικό θόλωμα με χρωματική εκτροπή, και σέπια για το παρελθόν
+const warp = { uniforms: { uAmount: new THREE.Uniform(0), uSepia: new THREE.Uniform(0) } };
+class WarpEffect extends Effect {
+  constructor(u) {
+    super('WarpEffect', `uniform float uAmount; uniform float uSepia;
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        vec2 c = vec2(0.5); vec2 dir = uv - c; vec3 col = inputColor.rgb;
+        if (abs(uAmount) > 0.002) { vec3 acc = vec3(0.0); float tot = 0.0;
+          for (int i = 0; i < 18; i++) { float f = float(i)/17.0; float s = 1.0 - uAmount*0.22*f; float w = 1.0 - 0.6*f;
+            acc.r += texture2D(inputBuffer, c + dir*(s - 0.006*uAmount)).r*w;
+            acc.g += texture2D(inputBuffer, c + dir*s).g*w;
+            acc.b += texture2D(inputBuffer, c + dir*(s + 0.006*uAmount)).b*w; tot += w; }
+          col = acc/tot; }
+        vec3 sep = vec3(dot(col, vec3(0.393, 0.769, 0.189)), dot(col, vec3(0.349, 0.686, 0.168)), dot(col, vec3(0.272, 0.534, 0.131)));
+        outputColor = vec4(mix(col, sep, uSepia), inputColor.a); }`,
+      { attributes: EffectAttribute.CONVOLUTION, uniforms: new Map([['uAmount', u.uAmount], ['uSepia', u.uSepia]]) });
+  }
+}
+composer.addPass(new EffectPass(camera, new WarpEffect(warp.uniforms)));
+// τόνοι, βινιέτα και λεπτός κόκκος φιλμ
+const tone = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
+const vignette = new VignetteEffect({ offset: 0.3, darkness: 0.5 });
+const noise = new NoiseEffect({ blendFunction: BlendFunction.SOFT_LIGHT }); noise.blendMode.opacity.value = 0.14;
+composer.addPass(new EffectPass(camera, tone, vignette, noise));
+
+// Σκιές επαφής (ambient occlusion) με το N8AO. Φορτώνεται μόνο όταν μπεις στο λιβάδι
+// σε υπολογιστή. Αν δεν φορτώσει, η εφαρμογή συνεχίζει κανονικά χωρίς αυτό.
+let aoPass = null, aoLoading = false;
+async function ensureAO() {
+  if (aoPass || aoLoading || isSmall) return;
+  aoLoading = true;
+  try {
+    const { N8AOPostPass } = await import('n8ao');
+    aoPass = new N8AOPostPass(scene, camera, window.innerWidth, window.innerHeight);
+    Object.assign(aoPass.configuration, { aoRadius: 1.4, distanceFalloff: 0.8, intensity: 2.2, gammaCorrection: false, halfRes: true, color: new THREE.Color(0x10140a) });
+    aoPass.setQualityMode?.('Medium');
+    aoPass.enabled = false;
+    composer.addPass(aoPass, 1);
+  } catch (e) { console.warn('Χωρίς ambient occlusion:', e); }
+}
+
+// =====================================================================
+// Κατάσταση, μεταβάσεις και HUD
+// =====================================================================
+const $ = id => document.getElementById(id);
+const state = { mode: 'ladder', dim: 3, queue: [], trans: null, tab: 'see', tour: false, tourT: 0, zoomPlaying: false };
+let current = worlds[3];
+worlds.forEach(w => w.fade = 0);
+elevator.fade = 0; zoom.fade = 0; meadow.fade = 0;
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.body.classList.add('touch');
+const yearNow = () => new Date().getFullYear() - Math.round(40 * MEADOW.era);
+
+const ladder = $('ladder');
+DIMS.forEach((d, i) => {
+  const li = document.createElement('li');
+  li.innerHTML = `<button data-d="${i}" style="--c:${d.color}" aria-label="Διάσταση ${i}: ${d.name}"><span class="n">${i}</span><span class="bar"></span></button>`;
+  ladder.appendChild(li);
+});
+ladder.addEventListener('click', e => { const b = e.target.closest('button[data-d]'); if (b) { stopTour(); goToDim(+b.dataset.d); } });
+
+function setAccent(hex) {
+  document.documentElement.style.setProperty('--dim', hex);
+  rim.color.set(hex); bg.material.uniforms.uTint.value.set(hex);
+}
+function renderHud() {
+  const num = $('numeral'), info = $('infoBody');
+  let data;
+  if (state.mode === 'ladder') {
+    const d = DIMS[state.dim]; data = d; setAccent(d.color);
+    if (num.textContent !== String(state.dim)) { num.textContent = String(state.dim); num.classList.remove('swap'); void num.offsetWidth; num.classList.add('swap'); }
+    $('dimName').textContent = d.name; $('dimLede').textContent = d.lede;
+    ladder.querySelectorAll('button').forEach(b => b.setAttribute('aria-current', String(+b.dataset.d === state.dim)));
+    $('srStatus').textContent = `Διάσταση ${state.dim}: ${d.name}`;
+  } else {
+    const m = MODE_TEXT[state.mode]; data = m; setAccent(m.color);
+    if (state.mode === 'elevator') num.innerHTML = '4D';
+    else if (state.mode === 'zoom') num.innerHTML = '10<sup id="zexp">0</sup>';
+    else if (state.mode === 'meadow') num.textContent = '3+1';
+    else num.textContent = String(yearNow());
+    num.classList.remove('swap'); void num.offsetWidth; num.classList.add('swap');
+    $('dimName').textContent = m.title; $('dimLede').textContent = m.lede;
+  }
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
+  info.innerHTML = data[state.tab];
+}
+document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => { state.tab = b.dataset.tab; renderHud(); }));
+$('collapse').addEventListener('click', () => { const i = $('info'); const min = i.classList.toggle('min'); $('collapse').textContent = min ? 'Πληροφορίες' : 'Απόκρυψη'; $('collapse').setAttribute('aria-expanded', String(!min)); });
+
+function cameraTo(w, instant = false) {
+  if (instant) { camera.position.copy(w.cam); controls.target.copy(w.focal); }
+}
+function goToDim(d) {
+  if (state.mode !== 'ladder') setMode('ladder');
+  d = clamp(d, 0, DIMS.length - 1);
+  const last = state.queue.length ? state.queue[state.queue.length - 1] : (state.trans ? state.trans.toIdx : state.dim);
+  if (d === last) return;
+  const stepDir = d > last ? 1 : -1;
+  for (let k = last + stepDir; stepDir > 0 ? k <= d : k >= d; k += stepDir) state.queue.push(k);
+}
+function startNextTransition() {
+  if (state.trans || !state.queue.length) return;
+  const toIdx = state.queue.shift();
+  const many = state.queue.length > 0;
+  state.trans = { from: current, to: worlds[toIdx], toIdx, dir: toIdx > state.dim ? 1 : -1, u: 0,
+    dur: reduceMotion ? 0.45 : (many ? 1.0 : 1.7), camFrom: camera.position.clone(), tgtFrom: controls.target.clone() };
+  state.dim = toIdx; renderHud();
+}
+function runTransition(dt) {
+  const tr = state.trans; if (!tr) return;
+  tr.start = tr.start ?? performance.now(); tr.u = Math.min(1, Math.max(tr.u, (performance.now() - tr.start) / (tr.dur * 1000))); const e = ease(tr.u);
+  const A = tr.from, B = tr.to;
+  if (tr.dir > 0) {
+    A.group.scale.setScalar(lerp(1, 0.004, e)); A.fade = 1 - smooth(0.75, 1, e);
+    B.group.scale.setScalar(lerp(6, 1, e)); B.fade = smooth(0.3, 0.85, e);
+  } else {
+    A.group.scale.setScalar(lerp(1, 6, e)); A.fade = 1 - smooth(0, 0.45, e);
+    B.group.scale.setScalar(lerp(0.004, 1, e)); B.fade = smooth(0.15, 0.6, e);
+  }
+  camera.position.lerpVectors(tr.camFrom, camAdj(B.cam, B.focal), e); controls.target.lerpVectors(tr.tgtFrom, B.focal, e);
+  warp.uniforms.uAmount.value = reduceMotion ? 0 : Math.sin(Math.PI * tr.u) * 0.9 * tr.dir;
+  if (tr.u >= 1) { A.fade = 0; A.group.scale.setScalar(1); B.fade = 1; B.group.scale.setScalar(1); current = B; state.trans = null; warp.uniforms.uAmount.value = 0; }
+}
+
+function setMode(mode) {
+  if (state.mode === mode) return;
+  state.queue = []; if (state.trans) { state.trans.u = 1; runTransition(0); }
+  const prevWorld = current, prevMode = state.mode;
+  state.mode = mode;
+  document.body.classList.remove('mode-ladder', 'mode-elevator', 'mode-zoom', 'mode-meadow', 'mode-time'); document.body.classList.add('mode-' + mode);
+  document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === mode)));
+  $('ctxElevator').hidden = mode !== 'elevator'; $('ctxZoom').hidden = mode !== 'zoom'; $('ctxTime').hidden = mode !== 'time';
+  $('wgauge').hidden = mode !== 'elevator'; $('caption').hidden = !(mode === 'elevator' || mode === 'zoom' || mode === 'time');
+  $('gatePrompt').hidden = true;
+  document.querySelector('.ladder').hidden = mode !== 'ladder';
+  const next = mode === 'ladder' ? worlds[state.dim] : mode === 'elevator' ? elevator : mode === 'zoom' ? zoom : meadow;
+  if (prevWorld === meadow) meadow.setFocal(playerHead());
+  if (next === meadow) prepareMeadowCamera();
+  const meadowLike = m => m === 'meadow' || m === 'time';
+  controls.maxPolarAngle = meadowLike(mode) ? 1.45 : Math.PI; controls.minDistance = meadowLike(mode) ? 2.2 : 1.2; controls.maxDistance = meadowLike(mode) ? 26 : 40;
+  if (next !== prevWorld) state.trans = { from: prevWorld, to: next, toIdx: state.dim, dir: (mode === 'zoom' || next === meadow) ? -1 : 1, u: 0, dur: reduceMotion ? 0.4 : 1.4, camFrom: camera.position.clone(), tgtFrom: controls.target.clone() };
+  if (mode === 'time') startEraAnim(1);
+  else if (prevMode === 'time') { if (mode === 'meadow') startEraAnim(0); else { MEADOW.anim = null; MEADOW.era = 0; } }
+  setFade(zoom.prof.group, mode === 'zoom' ? 1 : 0);
+  controls.enabled = true;
+  if (mode === 'elevator') { elevator.state.running = false; startElevator(); }
+  if (mode === 'zoom') { zoom.s = 0; $('zoomRange').value = 0; state.zoomPlaying = false; $('zoomPlay').textContent = 'Ξεκίνα το ταξίδι'; }
+  stopTour(); renderHud();
+}
+document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+// περιήγηση
+function stopTour() { state.tour = false; $('tour').setAttribute('aria-pressed', 'false'); }
+$('tour').addEventListener('click', () => {
+  state.tour = !state.tour; $('tour').setAttribute('aria-pressed', String(state.tour)); state.tourT = 0;
+  if (state.tour && state.dim === DIMS.length - 1) goToDim(0);
+});
+
+// ασανσέρ
+let clock0 = 0;
+function startElevator() { elevator.state.running = true; elevator.state.t0 = clock0; elevator.camStep = -1; }
+$('elevPlay').addEventListener('click', () => { startElevator(); $('elevPlay').textContent = 'Ξανά από την αρχή'; });
+const ELEV_CAPTIONS = [
+  'Η καμπίνα γράφει «Χωρητικότητα: 8 άτομα» και η πόρτα δεν ανοίγει. Περιμένουν 24.',
+  'Αναλογία: στον Επιπεδοχώρο ένα τετράγωνο είναι κλειστό δωμάτιο. Από την 3η διάσταση όμως περνάς από πάνω του.',
+  'Μπαίνουν ένας ένας μέσα από τη διάσταση W. Ο καθένας πιάνει θέση σε άλλο στρώμα W, γι\' αυτό δεν στριμώχνονται.',
+  'Χωράνε και οι 24, μαζί με τον Καθηγητή. Τα μικρότερα κουτιά είναι τα βαθύτερα στρώματα W, όπως στην προβολή του υπερκύβου.'
+];
+const ELEV_CAMS = [[V(4.4, 3.0, 7.0), V(-1.2, 0.9, 1.2)], [V(5.2, 2.6, 5.6), V(2.8, 0.5, 2.2)], [V(4.6, 2.6, 6.0), V(-0.8, 1.0, 1.0)], [V(4.3, 1.85, 0.5), V(-0.4, 1.0, -0.3)]];
+
+// ταξίδι στο πολύ μικρό
+const zr = $('zoomRange');
+zr.addEventListener('input', () => { zoom.s = +zr.value; state.zoomPlaying = false; $('zoomPlay').textContent = 'Συνέχισε'; });
+$('zoomPlay').addEventListener('click', () => {
+  if (zoom.s >= 35.2) zoom.s = 0;
+  state.zoomPlaying = !state.zoomPlaying; $('zoomPlay').textContent = state.zoomPlaying ? 'Παύση' : 'Συνέχισε';
+});
+const supDigits = n => String(n).split('').map(ch => '⁰¹²³⁴⁵⁶⁷⁸⁹'['0123456789'.indexOf(ch)] ?? ch).join('');
+function zoomHud() {
+  const s = zoom.s, n = Math.round(s);
+  const zexp = document.getElementById('zexp'); if (zexp) zexp.textContent = n === 0 ? '0' : '−' + n;
+  const mant = 1.8 * Math.pow(10, -(s - n));
+  const h = n === 0 ? `${(1.8 * Math.pow(10, -s)).toFixed(2).replace('.', ',')} m` : `${mant.toFixed(1).replace('.', ',')} × 10⁻${supDigits(n)} m`;
+  $('zoomReadout').innerHTML = `Ύψος Καθηγητή<br><b>${h}</b>`;
+  let best = 0, bd = 1e9; LAYERS.forEach((l, i) => { const d = Math.abs(s + l.e - 0.25); if (d < bd) { bd = d; best = i; } });
+  const cap = $('caption'); if (cap.dataset.i !== String(best)) { const L = LAYERS[best]; cap.dataset.i = String(best); cap.innerHTML = `<strong class="captitle">${L.title}</strong>${dimBar(L.dims)}<p>${L.label}</p>${DIM_LEGEND}`; }
+}
+
+// πληκτρολόγιο
+window.addEventListener('keydown', e => {
+  if (e.target.closest('input')) return;
+  if (!intro.classList.contains('gone')) return;
+  if (state.mode !== 'ladder') return;
+  if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { stopTour(); goToDim(state.dim + 1 + state.queue.length); e.preventDefault(); }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { stopTour(); goToDim(state.dim - 1 - state.queue.length); e.preventDefault(); }
+});
+
+// λιβάδι: κάμερα, πύλες, ταξίδι στον χρόνο
+function playerHead() { return MEADOW.player.group.position.clone().add(V(0, 1.3, 0)); }
+function prepareMeadowCamera() {
+  const h = MEADOW.heading, head = playerHead();
+  meadow.setFocal(head);
+  meadow.cam.copy(head).add(V(-Math.sin(h) * 6.4, 1.9, -Math.cos(h) * 6.4));
+}
+function gateInfo(g) {
+  const u = g.userData;
+  if (u.kind === 'dim') return { num: String(u.d), name: `Διάσταση ${u.d}: ${DIMS[u.d].name}`, lede: DIMS[u.d].lede, color: DIMS[u.d].color };
+  if (u.kind === 'elevator') return { num: '4D', name: 'Ασανσέρ 4D', lede: 'Χωρητικότητα 8 ατόμων. Μπαίνουν 24 από τη διάσταση W.', color: u.hex };
+  if (u.kind === 'zoom') return { num: '10⁻³⁵', name: 'Γίνε μικρός', lede: 'Ο Καθηγητής μικραίνει ως το μήκος Planck, εκεί που κρύβονται οι τυλιγμένες διαστάσεις.', color: u.hex };
+  return { num: '⟲', name: 'Ταξίδι στον χρόνο', lede: 'Πίσω στο σπίτι, 40 χρόνια πριν: ο μικρός Καθηγητής παίζει στην αυλή.', color: u.hex };
+}
+function travelGate(g) {
+  const u = g.userData;
+  if (u.kind === 'dim') { state.dim = u.d; setMode('ladder'); }
+  else setMode(u.kind);
+}
+$('gpGo').addEventListener('click', () => { if (MEADOW.near) travelGate(MEADOW.near); });
+window.addEventListener('keydown', e => {
+  const okKey = e.code === 'KeyE' || (e.code === 'Enter' && !e.target.closest('button, a'));
+  if (okKey && state.mode === 'meadow' && MEADOW.near && !state.trans && !e.target.closest('input')) { travelGate(MEADOW.near); e.preventDefault(); }
+});
+function startEraAnim(target) { MEADOW.anim = { from: MEADOW.era, to: target, u: 0, start: performance.now(), dur: reduceMotion ? 0.8 : 5.0, dir: target > MEADOW.era ? 1 : -1 }; }
+$('timeGo').addEventListener('click', () => startEraAnim(MEADOW.era < 0.5 ? 1 : 0));
+$('timeRange').addEventListener('input', e => { MEADOW.anim = null; MEADOW.era = +e.target.value / 40; });
+const TIME_CAPTIONS = [
+  'Σήμερα. Πάτα «Γύρνα 40 χρόνια πίσω» ή σύρε τον ρυθμιστή.',
+  'Ο χρόνος γυρίζει πίσω: τα δέντρα μικραίνουν, το σπίτι ξαναβάφεται, ο ήλιος πέφτει.',
+  'Πριν από 40 χρόνια. Ο μικρός Καθηγητής παίζει μπάλα στην αυλή. Πήγαινε κοντά του.',
+  'Ο Καθηγητής συνάντησε τον εαυτό του.'
+];
+
+// επιλογές χαρακτήρα
+function syncCharPanel() {
+  document.querySelectorAll('#charPanel [data-k]').forEach(group => {
+    const k = group.dataset.k; group.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(String(CHAR[k]) === b.dataset.v)));
+  });
+}
+$('charBtn').addEventListener('click', () => { const p = $('charPanel'); p.hidden = !p.hidden; $('charBtn').setAttribute('aria-expanded', String(!p.hidden)); syncCharPanel(); });
+document.querySelectorAll('#charPanel [data-k]').forEach(group => group.addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  const k = group.dataset.k, v = b.dataset.v; CHAR[k] = v === 'true' ? true : v === 'false' ? false : v;
+  applyCharacter(); syncCharPanel();
+}));
+
+// οθόνη έναρξης, πλήρης οθόνη, εγκατάσταση (PWA)
+const intro = $('intro');
+controls.autoRotate = !location.hash; controls.autoRotateSpeed = 0.5;
+function closeIntro() { intro.classList.add('gone'); controls.autoRotate = false; }
+intro.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => {
+  closeIntro();
+  const go = b.dataset.go;
+  if (go === 'ladder') { goToDim(0); state.tour = true; $('tour').setAttribute('aria-pressed', 'true'); state.tourT = -2; }
+  else setMode(go);
+}));
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+  else document.exitFullscreen?.();
+}
+$('fullscreen').addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', () => { $('fullscreen').querySelector('.long').textContent = document.fullscreenElement ? 'Έξοδος από πλήρη οθόνη' : 'Πλήρης οθόνη'; });
+window.addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && !e.target.closest('input')) toggleFullscreen(); if (e.key === 'Escape') closeIntro(); });
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('installTop').hidden = false; });
+$('installTop').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installTop').hidden = true; });
+window.addEventListener('appinstalled', () => { $('installTop').hidden = true; });
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// σύνδεσμοι με #
+function applyHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (location.hash.length > 1) closeIntro();
+  if (h.get('at')) { const [x, z, hd] = h.get('at').split(',').map(Number); MEADOW.player.group.position.set(x, groundH(x, z), z); MEADOW.heading = hd || 0; }
+  if (h.get('mode') && h.get('mode') !== 'ladder') { setMode(h.get('mode')); if (h.get('s')) zoom.s = +h.get('s'); if (h.get('t') && h.get('mode') === 'elevator') elevator.state.t0 = -+h.get('t'); if (h.has('era')) { MEADOW.anim = null; MEADOW.era = +h.get('era'); } }
+  else if (h.has('d')) { const d = clamp(+h.get('d'), 0, 11); current.fade = 0; current = worlds[d]; state.dim = d; current.fade = 1; camera.position.copy(camAdj(current.cam, current.focal)); controls.target.copy(current.focal); renderHud(); }
+}
+
+// μέγεθος
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h); composer.setSize(w, h); labelRenderer.setSize(w, h);
+});
+
+// =====================================================================
+// Βρόχος
+// =====================================================================
+const timer = new THREE.Clock();
+let t = 0;
+current.fade = 1; camera.position.copy(camAdj(current.cam, current.focal)); controls.target.copy(current.focal);
+if (window.matchMedia('(max-width: 860px)').matches) { $('info').classList.add('min'); $('collapse').textContent = 'Πληροφορίες'; $('collapse').setAttribute('aria-expanded', 'false'); }
+renderHud(); applyHash();
+function frame() {
+  requestAnimationFrame(frame);
+  if (document.hidden) return;
+  const dt = Math.min(timer.getDelta(), 0.05); t += dt; clock0 = t; U.time.value = t;
+  if (state.mode === 'ladder') {
+    startNextTransition();
+    if (state.tour && !state.trans) { state.tourT += dt; if (state.tourT > 9) { state.tourT = 0; if (state.dim >= DIMS.length - 1) stopTour(); else goToDim(state.dim + 1); } }
+  }
+  runTransition(dt);
+  // ενημέρωση ορατών κόσμων
+  for (const w of [...worlds, elevator, zoom, meadow]) {
+    if (w.fade > 0.003 || (state.trans && (state.trans.from === w || state.trans.to === w))) { setFade(w.group, w.fade); w.update(t, dt); }
+    else if (w.group.visible) setFade(w.group, 0);
+  }
+  // λιβάδι και ταξίδι στον χρόνο
+  const mf = meadow.fade;
+  bg.visible = mf < 0.999; stars.material.uniforms.uOpacity.value = 1 - mf; stars.visible = mf < 0.999;
+  key.intensity = 1.6 * (1 - mf); rim.intensity = 1.8 * (1 - mf); spaceHemi.intensity = 0.75 * (1 - mf);
+  bloom.intensity = lerp(1.2, 0.5, mf); bloom.luminanceMaterial.threshold = lerp(0.52, 0.86, mf);
+  godPass.enabled = mf > 0.5 && !isSmall;
+  if (mf > 0.01) { const P = MEADOW.player.group.position; godSun.position.copy(P).addScaledVector(MEADOW.sun, 380); godSun.material.color.set(MEADOW.era > 0.5 ? 0xffb070 : 0xfff0d0); }
+  scene.environmentIntensity = lerp(0.32, 0.45, mf);
+  scene.fog = mf > 0.5 ? meadowFog : null;
+  if (MEADOW.anim) { const a = MEADOW.anim; a.u = Math.min(1, (performance.now() - a.start) / (a.dur * 1000)); MEADOW.era = lerp(a.from, a.to, ease(a.u));
+    if (!state.trans && !reduceMotion) warp.uniforms.uAmount.value = Math.sin(Math.PI * a.u) * 0.55 * a.dir;
+    if (a.u >= 1) { MEADOW.anim = null; if (!state.trans) warp.uniforms.uAmount.value = 0; } }
+  warp.uniforms.uSepia.value = (state.mode === 'time' ? 0.22 : 0) * MEADOW.era * mf;
+  if ((state.mode === 'meadow' || state.mode === 'time') && !state.trans) meadowMove(dt);
+  if (mf > 0.01) ensureAO();
+  if (aoPass) aoPass.enabled = mf > 0.98 && !state.trans;
+  if (state.mode === 'meadow') {
+    const g = MEADOW.near, pr = $('gatePrompt');
+    if (g && !state.trans) {
+      if (pr.dataset.g !== String(meadow.gates.indexOf(g))) { const info = gateInfo(g); pr.dataset.g = String(meadow.gates.indexOf(g)); $('gpNum').textContent = info.num; $('gpName').textContent = info.name; $('gpLede').textContent = info.lede; pr.style.setProperty('--pc', info.color); }
+      pr.hidden = false;
+    } else { pr.hidden = true; pr.dataset.g = ''; }
+  }
+  if (state.mode === 'time') {
+    const y = yearNow(); $('numeral').textContent = String(y);
+    $('timeReadout').innerHTML = `Έτος<br><b>${y}</b>`; $('timeRange').value = String(Math.round(MEADOW.era * 40));
+    $('timeGo').textContent = MEADOW.era < 0.5 ? 'Γύρνα 40 χρόνια πίσω' : 'Επιστροφή στο σήμερα';
+    const met = !!meadow.met;
+    $('caption').textContent = TIME_CAPTIONS[met ? 3 : MEADOW.anim ? 1 : MEADOW.era > 0.95 ? 2 : 0];
+  }
+  if (state.mode === 'elevator') {
+    const st = elevator.step ?? 0;
+    if (elevator.camStep !== st && !state.trans) { elevator.camStep = st; elevator.camAnim = { u: 0, from: camera.position.clone(), tf: controls.target.clone(), to: ELEV_CAMS[st] }; }
+    if (elevator.camAnim && elevator.camAnim.u < 1) { const a = elevator.camAnim; a.start = a.start ?? performance.now(); a.u = Math.min(1, (performance.now() - a.start) / 1600); const e = ease(a.u); camera.position.lerpVectors(a.from, camAdj(a.to[0], a.to[1]), e); controls.target.lerpVectors(a.tf, a.to[1], e); }
+    $('caption').textContent = ELEV_CAPTIONS[st];
+    document.querySelectorAll('#elevSteps li').forEach((li, i) => li.classList.toggle('on', i === st));
+    const wv = elevator.w4 || 0; $('wfill').style.height = (wv * 100).toFixed(1) + '%'; $('wval').textContent = wv.toFixed(2).replace('.', ','); $('wcount').textContent = String(elevator.inside || 0);
+  }
+  if (state.mode === 'zoom') {
+    if (state.zoomPlaying) {
+      const near = Math.min(...LAYERS.map(l => Math.abs(zoom.s + l.e - 0.25)));
+      zoom.s = Math.min(35.25, zoom.s + dt * lerp(0.45, 3.2, smooth(0.5, 2.5, near)));
+      zr.value = zoom.s; if (zoom.s >= 35.25) { state.zoomPlaying = false; $('zoomPlay').textContent = 'Ξανά από την αρχή'; }
+    }
+    const halfW = 2.6 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+    zoom.prof.group.position.x = -0.62 * halfW; zoom.prof.group.position.y = camera.aspect < 1 ? -0.62 : -0.95;
+    zoomHud();
+  }
+  controls.update();
+  if ((state.mode === 'meadow' || state.mode === 'time') && !state.trans) {
+    for (let i = 0; i < 40 && inHouse(camera.position.x, camera.position.z, 0.5) && camera.position.y < HOUSE.h + 2.4; i++) camera.position.lerp(controls.target, 0.18);
+    const gy = groundH(camera.position.x, camera.position.z) + 0.4; if (camera.position.y < gy) camera.position.y = gy;
+  }
+  composer.render();
+  labelRenderer.render(scene, camera);
+  if (!frame.loaded) { frame.loaded = true; $('loading').classList.add('done'); }
+}
+const ready = document.fonts ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
+ready.then(() => requestAnimationFrame(frame));
+window.__dims = { state, worlds, elevator, zoom, meadow, MEADOW, goToDim, setMode, camera, controls };
+</script>
+</body>
+</html>
